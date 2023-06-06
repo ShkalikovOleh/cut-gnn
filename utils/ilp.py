@@ -31,8 +31,8 @@ def to_ilp(graph: nx.Graph, cycle_lenght_bound: int = None, ret_cycles: bool = T
 
         rcycle = reversed(cycle)
         for e, rest in zip(cycle, combinations(rcycle, len(cycle)-1)):
-            constr_sum = sum([1 - var[indexes[er]] for er in rest])
-            constraints.append(1 - var[indexes[e]] <= constr_sum)
+            constr_sum = sum([var[indexes[er]] for er in rest])
+            constraints.append(var[indexes[e]] <= constr_sum)
 
     problem = cp.Problem(obj, constraints=constraints)
 
