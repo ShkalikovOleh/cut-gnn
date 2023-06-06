@@ -1,23 +1,24 @@
 import numpy as np
 import pandas as pd
 import networkx as nx
-import torch_geometric
 from scipy.spatial.distance import pdist, squareform
 from scipy.special import logit
-from torch.utils.data import Dataset
 
 from itertools import combinations
 from functools import partial
-import concurrent.futures
-import os
-import typing
-import pickle
-import time
-import glob
+import concurrent.futures, os, typing, pickle, time
 
-from utils.io import write_graph, read_graph, path_type
+from utils.io import write_graph, path_type
 from utils.ilp import to_ilp, solve_ilp
-from utils.nx import add_ground_truth_to_edge_attrs, get_undirected_edge_idx
+from utils.nx import add_ground_truth_to_edge_attrs, get_directed_edge_idx
+
+def load_iris_df(path: path_type) -> pd.DataFrame:
+    df = pd.read_csv(path)
+
+    df.drop('variety', axis=1, inplace=True)
+    df.drop_duplicates(inplace=True)
+
+    return df
 
 def generate_iris_graph(iris_df : pd.DataFrame, n_nodes_low : int, n_nodes_high : int,
                         sigma : float = 1.0, n_sample_feat : int = 2, gen_x: bool = True) -> nx.Graph:
@@ -57,7 +58,7 @@ def generate_iris_sample(i_sample: int, path: path_type, iris_df: pd.DataFrame, 
     write_graph(G, os.path.join(path, f'iris_{i_sample}.gml'))
 
     if include_cycles:
-        ind_edge_idxs = get_undirected_edge_idx(G, cycles)
+        ind_edge_idxs = get_directed_edge_idx(G, cycles)
         with open(os.path.join(path, f'iris_{i_sample}_cycles.pkl'), 'wb') as file:
             pickle.dump(ind_edge_idxs, file)
 
@@ -65,36 +66,11 @@ def generate_iris_dataset(n_graphs: int, path: path_type, iris_df: pd.DataFrame,
                           n_nodes_high : int, sigma : float = 1.0, n_sample_feat : int = 2,
                           gen_x: bool = True, include_cycles: bool = True,
                           max_workers: typing.Optional[int] = None,
-                          solver:typing.Optional[str] = None) -> None:
+                          solver:typing.Optional[str] = None,
+                          start_idx: int = 0) -> None:
     generator = partial(generate_iris_sample, path = path, iris_df = iris_df, n_nodes_low = n_nodes_low,
                           n_nodes_high = n_nodes_high, sigma = sigma, n_sample_feat = n_sample_feat,
                           gen_x = gen_x, include_cycles=include_cycles, solver=solver)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        executor.map(generator, range(n_graphs))
-
-class IrisMPDataset(Dataset):
-    def __init__(self, root_path: path_type, load_cycles: bool = True) -> None:
-        super().__init__()
-
-        self.__graph_files = glob.glob(os.path.join(root_path, '*.gml'))
-        self.load_cycles = load_cycles
-        if load_cycles:
-            self.__cycles_files = glob.glob(os.path.join(root_path, '*.pkl'))
-
-    def __len__(self):
-        return len(self.__graph_files)
-
-    def __getitem__(self, idx):
-        G = read_graph(self.__graph_files[idx])
-        data = torch_geometric.utils.from_networkx(G)
-        data.x = data.x.float()
-        data.num_nodes = G.number_of_nodes()
-
-        if self.load_cycles:
-            with open(self.__cycles_files[idx], 'rb') as file:
-                cycles = pickle.load(file)
-                data.cycles = cycles
-
-        return data
-
+        executor.map(generator, range(start_idx, start_idx + n_graphs))

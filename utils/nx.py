@@ -13,19 +13,19 @@ def add_ground_truth_to_edge_attrs(graph: nx.Graph, gt: np.ndarray) -> nx.Graph:
 
     return graph
 
-def get_undirected_edge_idx(graph: nx.Graph, cycles: Iterable[Iterable[Tuple[int, int]]]):
+def get_directed_edge_idx(graph: nx.Graph, cycles: Iterable[Iterable[Tuple[int, int]]]):
     di_graph = graph.to_directed()
     di_graph_edges = list(di_graph.edges)
 
-    inderected_cycles = []
+    directed_cycles = []
 
     for cycle in cycles:
         ind_cycle = []
         for u, v in cycle:
             ind_cycle.append(di_graph_edges.index((u, v)))
-        inderected_cycles.append(ind_cycle)
+        directed_cycles.append(ind_cycle)
 
-    return inderected_cycles
+    return directed_cycles
 
 
 
