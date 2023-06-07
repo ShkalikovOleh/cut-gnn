@@ -1,16 +1,7 @@
 import torch
 from torch import nn
 
-__all__ = ['WeightEmbedding', 'min_max_norm_weights']
-
-def min_max_norm_weights(weights: torch.Tensor):
-    r"""Mapping weights value into interval [-1, 1]
-    with use of min-max normalization
-    """
-
-    wmin, wmax = torch.min(weights), torch.max(weights)
-    weights = 2 * (weights - wmin) / (wmax - wmin) - 1
-    return weights
+__all__ = ['WeightEmbedding']
 
 class WeightEmbedding(nn.Module):
     r"""Split weights into bins defined by boundaries and
