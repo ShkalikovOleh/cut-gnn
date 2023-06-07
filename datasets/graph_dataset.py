@@ -10,6 +10,8 @@ import re
 
 from utils.io import read_graph, path_type
 
+__all__ = ['GraphDataset']
+
 # Source: https://stackoverflow.com/questions/4813061/non-alphanumeric-list-order-from-os-listdir
 def sorted_alphanumeric(data):
     convert = lambda text: int(text) if text.isdigit() else text.lower()

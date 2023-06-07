@@ -12,6 +12,8 @@ from utils.io import write_graph, path_type
 from utils.ilp import to_ilp, solve_ilp
 from utils.nx import add_ground_truth_to_edge_attrs, get_directed_edge_idx
 
+__all__ = ['load_iris_df', 'generate_iris_graph', 'generate_iris_sample', 'generate_iris_dataset']
+
 def load_iris_df(path: path_type) -> pd.DataFrame:
     df = pd.read_csv(path)
 

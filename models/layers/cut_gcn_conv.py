@@ -2,6 +2,7 @@ import torch
 from torch_geometric.nn import MessagePassing, Linear
 from torch_geometric.utils import scatter
 
+__all__ = ['CutGCNConv']
 
 class CutGCNConv(MessagePassing):
     r"""

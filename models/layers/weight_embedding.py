@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+__all__ = ['WeightEmbedding', 'min_max_norm_weights']
+
 def min_max_norm_weights(weights: torch.Tensor):
     r"""Mapping weights value into interval [-1, 1]
     with use of min-max normalization

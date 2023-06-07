@@ -2,6 +2,8 @@ import torch
 
 from typing import Iterable, Mapping
 
+__all__ = ['full_ccl_loss', 'relaxed_ccl_loss']
+
 def full_ccl_loss(preds: torch.Tensor, edge_index: torch.Tensor,
                 cycles: Iterable[Iterable[Mapping[int, torch.Tensor]]],
                 ptr: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
