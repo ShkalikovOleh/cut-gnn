@@ -12,7 +12,7 @@ __all__ = ['CutGCN']
 class CutGCN(nn.Module):
     def __init__(self, n_gnn_layers: int = 12, n_gnn_hidden_dims: int = 256,
                  gnn_out_dims: int = 16, n_mlp_hidden_dims: int = 256,
-                 apply_batch_norm: bool = True, dropout_rate: float = 0.3,
+                 apply_batch_norm: bool = True, dropout_rate: float = 0,
                  apply_relu: bool = True, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
