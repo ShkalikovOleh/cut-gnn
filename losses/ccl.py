@@ -1,11 +1,10 @@
 import torch
 
-import typing
-
-cycles_type = typing.Iterable[typing.Iterable[typing.Iterable[int]]]
+from typing import Iterable, Mapping
 
 def full_ccl_loss(preds: torch.Tensor, edge_index: torch.Tensor,
-                cycles: cycles_type, ptr: torch.Tensor) -> torch.Tensor:
+                cycles: Iterable[Iterable[Mapping[int, torch.Tensor]]],
+                ptr: torch.Tensor) -> torch.Tensor:
     r"""Cycle consistency loss from the paper
 
     Jung, S., & Keuper, M. (2022). Learning to solve Minimum Cost Multicuts efficiently using
@@ -17,16 +16,16 @@ def full_ccl_loss(preds: torch.Tensor, edge_index: torch.Tensor,
     for batch_idx, g_cycles in enumerate(cycles):
         shift = torch.argwhere(edge_index[0] >= ptr[batch_idx])[0]
 
-        for cycle in g_cycles:
-            idxs = torch.tensor(cycle) + shift
+        for l, cycle in g_cycles[0].items():
+            idxs = cycle + shift
 
             cutted = preds[idxs]
             uncutted = 1 - cutted
 
-            for i in range(len(cycle)):
-                mask = torch.ones(len(cycle), dtype=torch.bool)
-                mask[i] = False
-                cycle_loss += cutted[i] * torch.cumprod(uncutted[mask][0], dim=-1)
+            for i in range(l):
+                y = cutted[:, i]
+                cycle_loss += torch.sum(y * torch.prod(uncutted[:, 1:], dim=1))
+                uncutted = torch.roll(uncutted, -1, 1)
 
     return cycle_loss
 

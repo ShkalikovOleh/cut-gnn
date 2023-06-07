@@ -60,7 +60,7 @@ def generate_iris_sample(i_sample: int, path: path_type, iris_df: pd.DataFrame, 
     if include_cycles:
         ind_edge_idxs = get_directed_edge_idx(G, cycles)
         with open(os.path.join(path, f'iris_{i_sample}_cycles.pkl'), 'wb') as file:
-            pickle.dump(ind_edge_idxs, file)
+            pickle.dump({3: ind_edge_idxs}, file) # save dict from length to list of idxs
 
 def generate_iris_dataset(n_graphs: int, path: path_type, iris_df: pd.DataFrame, n_nodes_low : int,
                           n_nodes_high : int, sigma : float = 1.0, n_sample_feat : int = 2,

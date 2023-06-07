@@ -1,4 +1,6 @@
+import torch
 import torch_geometric
+from torch_geometric.data import Data
 from torch.utils.data import Dataset
 
 import os
@@ -26,7 +28,7 @@ class GraphDataset(Dataset):
     def __len__(self):
         return len(self.__graph_files)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Data:
         G = read_graph(self.__graph_files[idx])
         data = torch_geometric.utils.from_networkx(G)
         data.x = data.x.float()
@@ -35,6 +37,8 @@ class GraphDataset(Dataset):
         if self.load_cycles:
             with open(self.__cycles_files[idx], 'rb') as file:
                 cycles = pickle.load(file)
-                data.cycles = cycles
+                for k in cycles.keys():
+                    cycles[k] = torch.tensor(cycles[k])
+                data.cycles = [cycles]
 
         return data
