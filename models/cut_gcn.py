@@ -18,6 +18,9 @@ class CutGCN(nn.Module):
 
         gnn_layers = []
 
+        if apply_batch_norm:
+            gnn_layers.append((BatchNorm(2), 'x -> x'))
+
         #first GNN layer block
         gnn_layers.extend(CutGCN.__make_gnn_layer(2, n_gnn_hidden_dims, apply_batch_norm,
                                                   apply_relu, dropout_rate))
@@ -27,37 +30,36 @@ class CutGCN(nn.Module):
             gnn_layers.extend(CutGCN.__make_gnn_layer(n_gnn_hidden_dims, n_gnn_hidden_dims,
                                                       apply_batch_norm, apply_relu, dropout_rate))
 
-        gnn_layers.extend(CutGCN.__make_gnn_layer(n_gnn_hidden_dims, gnn_out_dims,
-                                                  apply_batch_norm, apply_relu, dropout_rate))
         # last GNN layer block
-        # if apply_batch_norm:
-        #     gnn_layers.append((BatchNorm(n_gnn_hidden_dims), 'x -> x'))
-        # gnn_layers.append((CutGCNConv(n_gnn_hidden_dims, gnn_out_dims), 'x, edge_index, edge_weight -> x'))
-        if apply_batch_norm:
-            gnn_layers.append((BatchNorm(gnn_out_dims), 'x -> x'))
+        gnn_layers.extend(CutGCN.__make_gnn_layer(n_gnn_hidden_dims, gnn_out_dims,
+                                                  apply_batch_norm, False, 0))
 
         self.gcn = Sequential('x, edge_index, edge_weight', gnn_layers)
 
-        self.mlp = torch.nn.Sequential(torch.nn.Linear(gnn_out_dims*2, n_mlp_hidden_dims),
-                                       torch.nn.BatchNorm1d(n_mlp_hidden_dims),
-                                       torch.nn.ReLU(),
-                                       torch.nn.Linear(n_mlp_hidden_dims, 1))
+        mlp_layers = [torch.nn.Linear(gnn_out_dims*2, n_mlp_hidden_dims)]
+        if apply_batch_norm:
+            mlp_layers.append(torch.nn.BatchNorm1d(n_mlp_hidden_dims))
+        if apply_relu:
+            mlp_layers.append(torch.nn.ReLU(inplace=True))
+        mlp_layers.append(torch.nn.Linear(n_mlp_hidden_dims, 1))
+
+        self.mlp = torch.nn.Sequential(*mlp_layers)
 
     @staticmethod
     def __make_gnn_layer(in_dim: int, out_dim: int, apply_bn: bool,
                          apply_relu: bool, dropout_rate: float) -> List[Tuple[torch.nn.Module, str]]:
         layers = []
 
-        if apply_bn:
-            layers.append((BatchNorm(in_dim), 'x -> x'))
-
         layers.append((CutGCNConv(in_dim, out_dim), 'x, edge_index, edge_weight -> x'))
 
-        if dropout_rate > 0:
-            layers.append((torch.nn.Dropout(p=dropout_rate), 'x -> x'))
+        if apply_bn:
+            layers.append((BatchNorm(out_dim), 'x -> x'))
 
         if apply_relu:
             layers.append((torch.nn.ReLU(inplace=True), 'x -> x'))
+
+        if dropout_rate > 0:
+            layers.append((torch.nn.Dropout(p=dropout_rate), 'x -> x'))
 
         return layers
 
