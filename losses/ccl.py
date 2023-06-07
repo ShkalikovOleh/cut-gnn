@@ -4,7 +4,7 @@ from typing import Iterable, Mapping
 
 def full_ccl_loss(preds: torch.Tensor, edge_index: torch.Tensor,
                 cycles: Iterable[Iterable[Mapping[int, torch.Tensor]]],
-                ptr: torch.Tensor) -> torch.Tensor:
+                ptr: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
     r"""Cycle consistency loss from the paper
 
     Jung, S., & Keuper, M. (2022). Learning to solve Minimum Cost Multicuts efficiently using
@@ -23,7 +23,7 @@ def full_ccl_loss(preds: torch.Tensor, edge_index: torch.Tensor,
             uncutted = 1 - cutted
 
             for i in range(l):
-                y = cutted[:, i]
+                y = (cutted[:, i] > threshold) * cutted[:, i]
                 cycle_loss += torch.sum(y * torch.prod(uncutted[:, 1:], dim=1))
                 uncutted = torch.roll(uncutted, -1, 1)
 
