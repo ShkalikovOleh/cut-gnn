@@ -8,7 +8,7 @@ import glob
 import pickle
 import re
 
-from utils.io import read_graph, path_type
+from ..utils.io import read_graph, path_type
 
 __all__ = ['GraphDataset']
 
