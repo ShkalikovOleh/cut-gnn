@@ -11,6 +11,8 @@ class MLPEdgeClassifier(nn.Module):
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        self.node_dim = node_dim
+
         mlp_layers = [torch.nn.Linear(node_dim*2, hidden_dim)]
         if apply_bn:
             mlp_layers.append(torch.nn.BatchNorm1d(hidden_dim))
@@ -25,7 +27,7 @@ class MLPEdgeClassifier(nn.Module):
         edge_feat = torch.hstack([node_feat[row], node_feat[col]])
 
         edge_pred_1 = self.mlp(edge_feat).view(-1)
-        edge_pred_2 = self.mlp(torch.roll(edge_feat, shifts=16, dims=1)).view(-1)
+        edge_pred_2 = self.mlp(torch.roll(edge_feat, shifts=self.node_dim, dims=1)).view(-1)
 
         return F.sigmoid((edge_pred_1 + edge_pred_2) / 2)
 
