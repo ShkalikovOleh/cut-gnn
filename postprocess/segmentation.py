@@ -3,6 +3,8 @@ from torch_geometric.nn.conv import MessagePassing
 
 import typing
 
+__all__ = ['Segmenter']
+
 class Segmenter(MessagePassing):
     r"""Perform segmentation based on given predictions.
     Starting with totally separated clusters (1 cluster -> 1 node)
