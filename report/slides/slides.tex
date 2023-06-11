@@ -488,6 +488,26 @@
 \begin{frame}
     \frametitle{MultiCut Cost Loss}
 
+    \begin{block}{Do we really need BCE?}
+        Learning with BCE loss bounded us to the supervised learning: we need
+        a labeled dataset (i.e. have to solve a lot of ILP problems just to
+        generate it), but the task is actually to minimize the cost of multicut.
+    \end{block}
+
+    We can try replace $\mathcal{L}_{BCE}$ loss with
+    loss depended from the cost of cut. For example, let $\beta_t$ be
+    a decreasing sequence, then multicut cost loss can be as follows:
+    \[
+        \mathcal{L}_{MC}^{t} (\hat{y}) = \beta_t |c_{LB} - c(\hat{y})|
+    \]
+    where $c_{LB} = \sum\limits_{w_i < 0} w_i$ -- a lower bound of the cost.
+
+    \begin{alertblock}{Possible drawbacks}
+        It hard to choose the sequence $\beta_t$ and, of course,
+        the stability of training may suffer, but it is completely
+        unsupervised formulation.
+    \end{alertblock}
+
 \end{frame}
 
 \subsection{Self-prior learning}
@@ -495,7 +515,23 @@
 \begin{frame}
     \frametitle{Overfit Is All You Need}
 
+    \begin{block}{Do we need generalization?}
+        Learning on large datasets allow our models generalize
+        based on data instead of just learn by hard all answers,
+        but with the generalization we may defeat on particular examples.
+    \end{block}
 
+    Unsupervised formulation allow us to perform self-prior
+    learning: overfit different (possibly graph depended model, e.g. vary
+    number of layers w.r.t. the size of graph) on
+    every particular graph.
+
+    \begin{alertblock}{Runtime drawback}
+        In this of course we have to retrain model for every
+        graph and it requires time. It is not just an simple inference
+        as it was in the previous cases. But may be there is a threshold, after
+        which training will be more efficient than classical approach?
+    \end{alertblock}
 
 \end{frame}
 
