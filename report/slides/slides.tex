@@ -1,0 +1,166 @@
+\documentclass{beamer}
+\usetheme{Madrid}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+% \usepackage{multicol}
+% \usepackage{multirow}
+
+\usepackage{tikz}
+% \usetikzlibrary{shapes.geometric, arrows}
+% \usepackage{pgfplots}
+
+\usepackage[justification=centering]{caption}
+\usepackage{subcaption}
+
+\usepackage{xurl}
+
+% default path to images and other assets
+\graphicspath{{../assets/}}
+
+% disable wrapping
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=10000
+\hbadness=10000
+
+% number figure caption
+\setbeamertemplate{caption}[numbered]
+
+% display bib label in references
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+\setbeamertemplate{bibliography entry title}{}
+\setbeamertemplate{bibliography entry location}{}
+\setbeamertemplate{bibliography entry note}{}
+
+% Metadata
+% ------------------------
+\title[MultiCut GNN]{Graph neural network for solving the minimum cost multicut problem}
+\subtitle{Research seminar combinatorial image analysis}
+
+\author{Oleh Shkalikov}
+
+\institute[TU Dresden]{TU Dresden, Computer Science Faculty}
+
+\date{13 June, 2023}
+
+% ------------------------
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}
+    \frametitle{Agenda}
+    \tableofcontents
+\end{frame}
+
+\section{The multicut problem and introduction to GNN}
+
+\begin{frame}
+    \frametitle{Minimum Cost MultiCut Problem}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Graph Neural Network}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Graph Convolutional Network}
+
+
+
+\end{frame}
+
+\section{GNN approaches for multicuts}
+
+\subsection{Supervised learning}
+
+\begin{frame}
+    \frametitle{GNN MultiCut Pipeline}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Edge-Weighted GCN}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Evaluation Results}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Scaling Study}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Learning Node Embedding: Motivation}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Learning Node Embedding}
+
+
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Relaxed Cycle Consistency Loss}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Edge Weight Embedding}
+
+
+
+\end{frame}
+
+\subsection{Unsupervised learning}
+
+\begin{frame}
+    \frametitle{MultiCut Cost Loss}
+
+
+
+\end{frame}
+
+\subsection{Self-prior learning}
+
+\begin{frame}
+    \frametitle{Overfit Is All You Need}
+
+
+
+\end{frame}
+
+\section*{References}
+
+\begin{frame}[allowframebreaks]
+    \frametitle{References}
+
+    \bibliographystyle{apalike}
+    \bibliography{../references.bib}
+\end{frame}
+
+\end{document}
