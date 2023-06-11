@@ -391,21 +391,17 @@
         \lambda_2 \sum\limits_{e_{ij} \in y^{-1}(1)} |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle|
     \]
 
-    We can try to improve cycle consistency by using kernel trick ($d \geq 1$):
-    \begin{multline*}
-        \mathbb{P}_U \left(
-        \langle \mathbf{x}_{i}, \mathbf{x}_{k} \rangle > t
-        \Big|
-        \langle \mathbf{x}_{i}, \mathbf{x}_{j} \rangle > t,
-        \langle \mathbf{x}_{j}, \mathbf{x}_{k} \rangle > t
-        \right) \leq \\
-        \mathbb{P}_U \left(
-        \langle \mathbf{x}_{i}, \mathbf{x}_{k} \rangle^{\textcolor{gray}{d}} > t
-        \Big|
-        \langle \mathbf{x}_{i}, \mathbf{x}_{j} \rangle^d > t,
-        \langle \mathbf{x}_{j}, \mathbf{x}_{k} \rangle^d > t
-        \right)
-    \end{multline*}
+    % \begin{alertblock}{Cycle consistency}
+    Unfortunately, this loss can not enforce cycle consistency
+    (suppose $t < 0.5$)
+    \[
+        \begin{cases}
+            1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle| \leq t \\
+            1 - |\cos \langle \mathbf{x}_j, \mathbf{x}_k \rangle| \leq t
+        \end{cases} \implies
+        1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_k \rangle| \leq
+        1 - |2(1 - t)^2 - 1| \geq t
+    \]
 
 \end{frame}
 
