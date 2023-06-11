@@ -375,7 +375,36 @@
 \begin{frame}
     \frametitle{Learning Node Embedding}
 
+    \begin{block}{Orthogonal embeddings}
+        We've seen that it is possible to learn the orthogonal
+        embeddings with BCE loss,
+        let's try to add / replace specific term to loss
+        to ensure it. Thus we will be able to replace MLP classifier with
+        scalar product calculation.
+    \end{block}
+    In a paper \cite{chen2019instance} on image instance segmentation
+    authors proposed the following approach (here adapted to graphs):
+    \[
+        \mathcal{L}_{emb} =
+        \lambda_1 \sum\limits_{e_{ij} \in y^{-1}(0)} \left(1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle| \right) +
+        \lambda_2 \sum\limits_{e_{ij} \in y^{-1}(1)} |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle|
+    \]
 
+    We can try to improve cycle consistency by using kernel trick ($d \geq 1$):
+    \begin{multline*}
+        \mathbb{P}_U \left(
+        \langle \mathbf{x}_{i}, \mathbf{x}_{k} \rangle > t
+        \Big|
+        \langle \mathbf{x}_{i}, \mathbf{x}_{j} \rangle > t,
+        \langle \mathbf{x}_{j}, \mathbf{x}_{k} \rangle > t
+        \right) \leq \\
+        \mathbb{P}_U \left(
+        \langle \mathbf{x}_{i}, \mathbf{x}_{k} \rangle^{\textcolor{gray}{d}} > t
+        \Big|
+        \langle \mathbf{x}_{i}, \mathbf{x}_{j} \rangle^d > t,
+        \langle \mathbf{x}_{j}, \mathbf{x}_{k} \rangle^d > t
+        \right)
+    \end{multline*}
 
 \end{frame}
 
