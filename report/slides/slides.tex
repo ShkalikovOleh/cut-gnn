@@ -3,8 +3,8 @@
 
 \usepackage{amsmath}
 \usepackage{graphicx}
-% \usepackage{multicol}
-% \usepackage{multirow}
+\usepackage{multicol}
+\usepackage{multirow}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows}
@@ -175,7 +175,7 @@
         \mathbf{x}_i^{(t+1)} =
         \sum_{j \in \mathcal{N}(i) \cup \{ i \}}
         \frac{\theta \mathbf{x}_j^{(t)}}
-        {\sqrt{\deg(i)} \sqrt{(\deg(j))}}
+        {\sqrt{\deg(i)} \sqrt{\deg(j)}}
     \]
 
 \end{frame}
@@ -187,35 +187,188 @@
 \begin{frame}
     \frametitle{GNN MultiCut Pipeline}
 
+    \begin{enumerate}
+        \item Compute initial node features \cite{jung2022learning}
+              \[
+                  \mathbf{x}_i = \left(
+                  \sum\limits_{j \in \mathcal{N}^{+}(i)} w_{ij},
+                  \sum\limits_{j \in \mathcal{N}^{-}(i)} w_{ij}
+                  \right)
+              \]
+        \item Apply GNN
+        \item Classify edge based on node embeddings (e.g. with MLP)
+        \item Enforce cycle consistency
+    \end{enumerate}
 
+    \begin{figure}
+        \begin{tikzpicture}[node distance=0.8cm]
+            \node(root) [node] {3};
+            \node(node1) [node, fill=green!30, right of=root, yshift=1cm] {2};
+            \node(node2) [node, fill=red!30, left of=root, yshift=1.25cm] {1};
+            \node(node3) [node, fill=red!30, left of=root, xshift=-1.5cm, yshift=-0.2cm] {1};
+            \node(node4) [node, fill=orange!30, below of=root, xshift=-1cm] {4};
+            \node(node5) [node, fill=blue!30, below of=root, xshift=2cm] {5};
+
+            \node(root2) [node, fill=red!30, right of=root, xshift=5cm] {1};
+            \node(node21) [node, fill=red!30, right of=root2, yshift=1cm] {1};
+            \node(node22) [node, fill=red!30, left of=root2, yshift=1.25cm] {1};
+            \node(node23) [node, fill=red!30, left of=root2, xshift=-1.5cm, yshift=-0.2cm] {1};
+            \node(node24) [node, fill=orange!30, below of=root2, xshift=-1cm] {4};
+            \node(node25) [node, fill=green!30, below of=root2, xshift=2cm] {2};
+
+            \draw (node1) -- (root);
+            \draw[color=gray!80] (node2) -- (root);
+            \draw (node3) -- (root);
+            \draw[color=gray!80] (node4) -- (root);
+            \draw (node5) -- (root);
+
+            \draw (node1) -- (node2);
+            \draw (node1) -- (node5);
+            \draw (node2) -- (node3);
+            \draw[color=gray!80] (node3) -- (node4);
+            \draw (node4) -- (node5);
+
+            \draw[arrow] (2, 1) -- node[above]{step} (4, 1);
+
+            \draw (node21) -- (root2);
+            \draw[color=black] (node22) -- (root2);
+            \draw (node23) -- (root2);
+            \draw[color=gray!80] (node24) -- (root2);
+            \draw (node25) -- (root2);
+
+            \draw (node21) -- (node22);
+            \draw (node21) -- (node25);
+            \draw (node22) -- (node23);
+            \draw[color=gray!80] (node23) -- (node24);
+            \draw (node24) -- (node25);
+        \end{tikzpicture}
+        \caption{Postprocessing as a message passing}
+    \end{figure}
 
 \end{frame}
 
 \begin{frame}
-    \frametitle{Edge-Weighted GCN}
+    \frametitle{Edge-Weighted GCN \cite{jung2022learning}}
 
+    \begin{block}{Limitation of the classic CGN}
+        The original CGN can not handle real value weights, so we need to augment this
+        approach for out task.
+    \end{block}
 
+    Signed normalized graph Laplacian and
+    corresponding message passing (here $\overline{\deg}(i) = \sum\limits_{j \in \mathcal{N}(i)} |w_{ij}|$):
+    \[
+        \mathbf{x}_i^{(t+1)} = \gamma_{\theta} \left(
+        \mathbf{x^{(t)}_i} +
+        \sum_{j \in \mathcal{N}(i)}
+        \frac{w_{ij} \mathbf{x}_j^{(t)}}
+        {\sqrt{\overline{\deg}(i)} \sqrt{\overline{\deg}(j)}}
+        \right)
+    \]
+
+    The loss function consist 2 part:
+    \[
+        \mathcal{L} = \mathcal{L}_{BCE} + \alpha \overbrace{
+            \sum\limits_{C \in cc{G, l}} \sum\limits_{e \in C} \hat{y}_e
+            \prod\limits_{e' \in C \setminus \{e\}} (1 - \hat{y}_{e'})
+        }^{\text{Cycle consistency loss}}
+    \]
 
 \end{frame}
 
 \begin{frame}
     \frametitle{Evaluation Results}
 
+    The model with 20 layers, cycle length parameter for CCL is $8$,
+    node representation dimensionality is 128 and edge classifier 2-layer
+    MLP with 256 hidden dimension, trained on artificially generated RandomMP dataset
+    shows the following result \cite{jung2022learning}.
 
+    \begin{table}
+        \scalebox{0.75}
+        {
+            \begin{tabular}{|c|*{6}{c}|cc|}
+                \hline
+                \multirow{2}{*}{\textbf{Solver}}    & \multicolumn{6}{c|}{\textbf{Test Datasets}} & \multicolumn{2}{c|}{\textbf{Runtime [s]}}                                                                                                       \\
+                                                    & IrisMP                                      & RndMP                                     & BSDS300 & CREMI  & Knott                                                   & h.mean & fwd & total   \\
+                \hline
+                \hline
+                WGCN                                & 0.9762                                      & 0.9041                                    & 0.9204  & 0.8440 & 0.7870                                                  & 0.8815 & 0.9 & 4.8     \\
+                \hline
+                LR                                  & 0.8035                                      & 0.3938                                    & 0.7958  & 0.9260 & 0.7335                                                  & 0.6681 &     & N/A     \\
+                MLP                                 & 0.8985                                      & 0.3099                                    & 0.6804  & 0.4845 & 0.1517                                                  & 0.3457 &     & N/A     \\
+                \hline
+                GAEC                                & 0.9836                                      & 0.9780                                    & 0.9997  & 0.9958 & 0.9968                                                  & 0.9907 &     & 23.2    \\
+                TB GAEC\footnote{Time bounded GAEC} & 0.3642                                      & 0.0034                                    & 0.0000  & 0.1516 & 0.0000                                                  & 0.0000 &     & 6.3     \\
+                LP solver\footnote{Branch \& Cut}   & 0.9882                                      & 0.9525                                    & 0.9979  & 0.9998 & OOT\footnote{Out of time: no termination within 24 Hrs} & -      &     & 31918.8 \\
+                ILP solver                          & 1.0000                                      & 1.0000                                    & 1.0000  & 1.0000 & 1.0000                                                  & 1.0000 &     & 24361.2 \\
+                \hline
+            \end{tabular}
+        }
+        \caption{The values of optimal objective ratio for proposed
+            GNN, simple linear regression / MLP trained on the input features
+            and classic solvers.}
+    \end{table}
 
 \end{frame}
 
 \begin{frame}
     \frametitle{Scaling Study}
 
+    \begin{block}{Runtime}
+        Graph neural network approach significantly outperform the
+        classical approach in terms of runtime, but in the same time
+        shows a lit bit worse objective value.
+    \end{block}
 
+    \begin{table}
+        \scalebox{0.7}
+        {
+            \begin{tabular}{|c|*{8}{c|}}
+                \hline
+                \multirow{2}{*}{\textbf{Nodes}} & \multicolumn{2}{c|}{\textbf{GAEC}} & \multicolumn{2}{c|}{\textbf{LP}} & \multicolumn{2}{c|}{\textbf{ILP}} & \multicolumn{2}{c|}{\textbf{WGCN}}                                                          \\
+                                                & [ms]                               & Objective                        & [ms]                              & Objective                          & [ms]          & Objective    & [ms]        & Objective \\
+                \hline
+                \hline
+                $10^1$                          & \textbf{0 }                        & -29                              & 6                                 & -24                                & 11            & -30          & 29          & -29       \\
+                $10^2$                          & \textbf{4 }                        & -327                             & 191                               & -246                               & 273           & -330         & 26          & -276      \\
+                $10^3$                          & \textbf{24}                        & -3051                            & 6585                              & -2970                              & 1299          & -3093        & 29          & -2643     \\
+                $10^4$                          & 228                                & -32 264                          & 688 851                           & -31531                             & 18604         & -32682       & \textbf{78} & -27 552   \\
+                $10^5$                          & 2534                               & -323 189                         & \multicolumn{2}{c|}{OOT}          & 2 171 134                          & -328 224      & \textbf{557} & -269 122                \\
+                $10^6$                          & 35 181                             & -3 401 783                       & \multicolumn{2}{c|}{OOT}          & \multicolumn{2}{c|}{OOT}           & \textbf{8713} & -2 182 589                             \\
+                \hline
+            \end{tabular}
+        }
+        \caption{Runtime and objective values over different approaches for
+            different graph sizes}
+    \end{table}
 
 \end{frame}
 
 \begin{frame}
     \frametitle{Learning Node Embedding: Motivation}
 
-
+    \begin{figure}
+        \begin{subfigure}{0.5\linewidth}
+            \centering
+            \includegraphics[height=0.53\textwidth]{emb1.png}
+        \end{subfigure}
+        \begin{subfigure}{0.49\linewidth}
+            \centering
+            \includegraphics[height=0.53\textwidth]{emb2.png}
+        \end{subfigure}
+        \begin{subfigure}{0.5\linewidth}
+            \centering
+            \includegraphics[height=0.53\textwidth]{emb3.png}
+        \end{subfigure}
+        \begin{subfigure}{0.49\linewidth}
+            \centering
+            \includegraphics[height=0.53\textwidth]{emb4.png}
+        \end{subfigure}
+        \caption{Cosine similarities for the node embeddings
+            computed for samples from the IrisMP dataset.
+            Source: \cite{jung2022learning}}
+    \end{figure}
 
 \end{frame}
 
