@@ -269,7 +269,7 @@
     The loss function consist 2 part:
     \[
         \mathcal{L} = \mathcal{L}_{BCE} + \alpha \overbrace{
-            \sum\limits_{C \in cc{G, l}} \sum\limits_{e \in C} \hat{y}_e
+            \sum\limits_{C \in cc(G, l)} \sum\limits_{e \in C} \hat{y}_e
             \prod\limits_{e' \in C \setminus \{e\}} (1 - \hat{y}_{e'})
         }^{\text{Cycle consistency loss}}
     \]
@@ -410,6 +410,28 @@
 
 \begin{frame}
     \frametitle{Relaxed Cycle Consistency Loss}
+
+    Original cycle consistency loss used in experiments:
+    \[
+        \mathcal{L}_{CCL} =
+        \sum\limits_{C \in cc(G, l)} \sum\limits_{e \in C}
+        \left[\hat{y}_e > 0.5 \right] \hat{y}_e
+        \prod\limits_{e' \in C \setminus \{e\}} (1 - \hat{y}_{e'})
+    \]
+
+    Proposed relaxed version:
+    \[
+        \mathcal{L}_{RCCL} =
+        \sum\limits_{C \in cc(G)} \sum\limits_{e \in C}
+        \left[\hat{y}_e > 0.5 \right] \hat{y}_e
+        \prod\limits_{e' \in C \setminus \{e\}}
+        \left[ 1 - \hat{y}_{e'} > 0.5 \right]
+    \]
+
+    \begin{exampleblock}{Benefits of relaxed version}
+        Relaxed formulation allow us to compute the loss very fast
+        for cycle of the arbitrary length after postprocessing step.
+    \end{exampleblock}
 
 \end{frame}
 
