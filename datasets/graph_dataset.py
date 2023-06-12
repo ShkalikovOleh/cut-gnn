@@ -72,7 +72,8 @@ def graph_batch_to_device(batch: Batch, device: torch.device) -> Batch:
 
 class GraphDataModule(LightningDataModule):
     def __init__(self, root_path: path_type, batch_size: int,
-                  fractions: Sequence[float|int], load_cycles: bool = True) -> None:
+                  fractions: Sequence[float|int], num_workers: int = 2,
+                  load_cycles: bool = True) -> None:
         super().__init__()
         assert len(fractions) == 3, 'You have specify 3 fractions for train, val and test'
 
@@ -80,19 +81,20 @@ class GraphDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.load_cycles = load_cycles
         self.fractions = fractions
+        self.num_workers = num_workers
 
     def setup(self, stage: str) -> None:
         ds = GraphDataset(self.root_path, self.load_cycles)
         self.train_ds, self.val_ds, self.test_ds = random_split(ds, self.fractions)
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_ds, self.batch_size)
+        return DataLoader(self.train_ds, self.batch_size, num_workers=self.num_workers)
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val_ds, self.batch_size)
+        return DataLoader(self.val_ds, self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test_ds, self.batch_size)
+        return DataLoader(self.test_ds, self.batch_size, num_workers=self.num_workers)
 
     def transfer_batch_to_device(self, batch: Batch, device:
                                  torch.device, dataloader_idx: int) -> Batch:
