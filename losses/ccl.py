@@ -26,7 +26,8 @@ def full_ccl_loss(preds: torch.Tensor, edge_index: torch.Tensor,
 
             for i in range(l):
                 y = (cutted[:, i] > threshold) * cutted[:, i]
-                cycle_loss += torch.sum(y * torch.prod(uncutted[:, 1:], dim=1))
+
+                cycle_loss += torch.sum(y * torch.exp(torch.sum(torch.log(uncutted[:, 1:]), dim=1)))
                 uncutted = torch.roll(uncutted, -1, 1)
 
     return cycle_loss
