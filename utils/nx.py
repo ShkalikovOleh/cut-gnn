@@ -4,6 +4,8 @@ import networkx as nx
 from itertools import pairwise
 from typing import Iterable, Tuple
 
+__all__ = ['add_ground_truth_to_edge_attrs', 'get_directed_edge_idx']
+
 def add_ground_truth_to_edge_attrs(graph: nx.Graph, gt: np.ndarray) -> nx.Graph:
     var_dict = {}
     for edge, val in zip(graph.edges, gt):

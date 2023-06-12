@@ -5,6 +5,8 @@ import cvxpy as cp
 import typing
 from itertools import pairwise, combinations
 
+__all__ = ['to_ilp', 'solve_ilp', ]
+
 def to_ilp(graph: nx.Graph, cycle_lenght_bound: int = None, ret_cycles: bool = True) -> cp.Problem:
     var = cp.Variable(graph.number_of_edges(), boolean=True)
     c = list(nx.get_edge_attributes(graph, 'weight').values())
