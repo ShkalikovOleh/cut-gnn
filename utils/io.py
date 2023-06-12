@@ -5,7 +5,7 @@ from networkx.readwrite.gml import literal_destringizer, literal_stringizer
 import pathlib
 import typing
 
-__all__ = ['write_graph', 'read_graph']
+__all__ = ['write_graph', 'read_graph', 'path_type']
 
 path_type = typing.Union[str, pathlib.Path]
 
