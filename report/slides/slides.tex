@@ -418,7 +418,7 @@
 
     Proposed relaxed version:
     \[
-        \mathcal{L}_{RCCL} =
+        \mathcal{L}_{RCCL} = \frac{1}{|E|}
         \sum\limits_{C \in cc(G)} \sum\limits_{e \in C}
         \left[\hat{y}_e > 0.5 \right] \hat{y}_e
         \prod\limits_{e' \in C \setminus \{e\}}
@@ -487,14 +487,15 @@
     \begin{block}{Do we really need BCE?}
         Learning with BCE loss bounded us to the supervised learning: we need
         a labeled dataset (i.e. have to solve a lot of ILP problems just to
-        generate it), but the task is actually to minimize the cost of multicut.
+        generate it). Moreover, this loss \textbf{is not affected
+            by the value of weights}.
     \end{block}
 
     We can try replace $\mathcal{L}_{BCE}$ loss with
     loss depended from the cost of cut. For example, let $\beta_t$ be
     a decreasing sequence, then multicut cost loss can be as follows:
     \[
-        \mathcal{L}_{MC}^{t} (\hat{y}) = \beta_t |c_{LB} - c(\hat{y})|
+        \mathcal{L}_{MC}^{t} (\hat{y}) = \beta_t \left( c(\hat{y}) - c_{LB} \right)
     \]
     where $c_{LB} = \sum\limits_{w_i < 0} w_i$ -- a lower bound of the cost.
 
