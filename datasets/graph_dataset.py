@@ -51,21 +51,22 @@ class GraphDataset(Dataset):
         return data
 
 
-def graph_batch_to_device(batch: Batch, device: torch.device) -> Batch:
+def graph_batch_to_device(batch: Batch, device: torch.device, has_cycles: bool = True) -> Batch:
     batch.x = batch.x.to(device)
     batch.edge_index = batch.edge_index.to(device)
     batch.weight = batch.weight.to(device)
     batch.gt = batch.gt.to(device)
-    batch.batch = batch.batch.to(device)
-    batch.ptr = batch.ptr.to(device)
+    # batch.batch = batch.batch.to(device)
+    # batch.ptr = batch.ptr.to(device)
 
-    device_cycles = []
-    for g_cycle in batch.cycles:
-        g_dev_cycles = {}
-        for l, l_cycles in g_cycle[0].items():
-            g_dev_cycles[l] = l_cycles.to(device)
-        device_cycles.append([g_dev_cycles])
-    batch.cycles = device_cycles
+    if has_cycles:
+        device_cycles = []
+        for g_cycle in batch.cycles:
+            g_dev_cycles = {}
+            for l, l_cycles in g_cycle[0].items():
+                g_dev_cycles[l] = l_cycles.to(device)
+            device_cycles.append([g_dev_cycles])
+        batch.cycles = device_cycles
 
     return batch
 
@@ -98,4 +99,4 @@ class GraphDataModule(LightningDataModule):
 
     def transfer_batch_to_device(self, batch: Batch, device:
                                  torch.device, dataloader_idx: int) -> Batch:
-        return graph_batch_to_device(batch, device)
+        return graph_batch_to_device(batch, device, self.load_cycles)
