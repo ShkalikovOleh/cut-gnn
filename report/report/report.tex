@@ -8,9 +8,9 @@
     \hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=black}
 
 \usepackage[top=2cm, bottom=2cm, left=1.5cm, right=1.5cm]{geometry}
-\usepackage{fancyhdr}
-    \pagestyle{fancy}
-    \renewcommand{\headrulewidth}{0pt}
+% \usepackage{fancyhdr}
+%     \pagestyle{fancy}
+%     \renewcommand{\headrulewidth}{0pt}
 \usepackage{titlesec}
     \titleformat{\title}{\large\bfseries}{}{}{}
     \titleformat{\section}{\normalfont\bfseries}{\thesection}{0.5em}{}
@@ -24,7 +24,7 @@
 	\renewcommand{\cite}[1]{\citep{#1}}
 
 \usepackage{amsthm, amsmath, amssymb}
-\usepackage[ruled, linesnumbered]{algorithm2e}
+\usepackage[ruled]{algorithm2e}
 \SetKwComment{Comment}{// }{ }
 
 \usepackage{tikz}
@@ -334,24 +334,84 @@ The last step of postprocessing algorithm is responsible for uncut wrongly cut e
 which belongs to the same cluster (that means that there is a path in graph made by uncut edges which
 connect this two nodes and therefore constraints \eqref{def:cycle_constraint} have been violated).
 
-
 \subsection{Graph neural network architectures}
+While all other steps of GNN multicut pipeline \ref{alg:pipeline} don't require
+additional changes, architectures of graph neural network should be adjusted to be able to incorporate
+edge weights into computation since originally minimum cost multicut problem has only this quantities and
+a lot popular models can not work properly without alteration with one dimensional real-valued edge features.
+
+As a main baseline authors of paper have chosen the Graph Convolutional Network by \citet{kipf2016semi}.
+The update rule of this architecture is the following:
+\[
+    \mathbf{x}_i^{(t+1)} = \gamma_{\theta} \left( \mathbf{x}_i^{(t)} +
+    \sum\limits_{j \in \mathcal{N}(i)} \mathbf{L_{ij}} \mathbf{x}_j^{(t)} \right),
+\]
+where update function $\gamma_{\theta}$ is a matrix-vector multiplication with matrix of parameter $\theta$ followed by
+non-linear function like ReLU, $\mathbf{L_{ij}} = \frac{1}{\sqrt{\deg(i) \deg(j)}}$ and
+$\mathbf{L} = \mathbf{\tilde{D}^{1/2} \tilde{A} \tilde{D}^{1/2}}$ -- normalized graph laplacian, $\tilde{D}$ --
+degree matrix and $\tilde{A}$ -- adjacency matrix with additional self-loops.
+
+In order to allow this model to work with negative valued weights (which is necessary because otherwise
+the solution is trivial) authors proposed to change the message function by multiplying by weight value and
+replacing degree of node with similar but non error-prone quantity
+$\overline{\deg}(i) = \sum\limits_{j \in \mathcal{N}(i)} |w_{ij}|$. Thus the update rule of updated
+Graph Convolutional Network for minimum cost multicut problem is the following:
+
+\[
+    \mathbf{x}_i^{(t+1)} = \gamma_{\theta} \left(
+    \mathbf{x^{(t)}_i} +
+    \sum_{j \in \mathcal{N}(i)}
+    \frac{w_{ij} \mathbf{x}_j^{(t)}}
+    {\sqrt{\overline{\deg}(i)} \sqrt{\overline{\deg}(j)}}
+    \right)
+\]
+
+Despite the fact that all further experiments from the main content of the paper use only this architecture
+it is worth to point out that authors also proposed updated version of Signed
+Graph Convolutional Network by \citet{derr2018signed} and Graph Isomorphic Network by \citet{xu2018powerful}.
+The explanation of choice has not been provided but the given in the appendix graphs allow us to conclude
+that decision was based on the stability in terms of training and evaluation loss especially in the case
+of Graph Isomorphic Network which has shown big fluctuations.
 
 \subsection{Loss function}
+Having determined the architecture the next important point in training neural networks and
+in particular graph neural network is to define the loss function. In this regard authors decided
+to formulate the minimum cost multicut problem as a supervised learning problem with loss which consists of two parts.
+They use binary cross entropy loss as the first part of the loss. This part of the loss is responsible for
+minimizing the cost \eqref{def:cost} of multicut by making the predicted solution as
+close as possible to optimal.
+
+The second part of the loss has been proposed by authors and based on cycle consistency constraints \eqref{def:cycle_constraint}
+and responsible for enforcing feasible solutions. They called id CCL (cycle consistency loss) and it is computed as follows:
+\begin{equation} \label{eq:ccl}
+    \mathcal{L}_{\text{CCL}} = \sum\limits_{C \in cc(G, l)} \sum\limits_{e \in C} \hat{y}_e
+    \prod\limits_{e' \in C \setminus \{e\}} (1 - \hat{y}_{e'}),
+\end{equation}
+where $cc(G, l)$ -- chordless cycles with length less or equal to $l$. This upper boundary is determined
+experimentally and necessary since the number of cycles grows exponentially.
+
+The total loss is computed as a weighted sum of these losses. But it worth to point out that supervised
+formulation is unnatural for the minimum cost multicut problem and ideas to get rid of this type of
+formulation will be discussed in further sections as well as formulation of loss which doesn't require
+enumeration of all chordless cycles in the graph.
 
 \subsection{Training process and datasets}
+gs
 
 \section{Empirical contributions (if any, max.~1 column)}
+g
 
-\emph{State briefly the main empirical findings of the article(s) you are summarizing (if any).
-    Do not copy or reproduce any figures or tables.}
+\section{Ideas to improve the proposed approach}
+sf
 
-\section{Ideas to improve the discussed approach}
 \subsection{Orthogonal embeddings} \label{sec:ortho_emb}
+
 \subsection{Relaxed Cycle Consistency Loss}
+
 \subsection{Edge Weight Embedding}
 
 \subsection{Unsupervised formulation}
+
 \subsection{Self-prior learning / finetuning}
 
 \bibliography{../references.bib}
