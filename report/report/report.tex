@@ -328,7 +328,7 @@ manner it can be parallelized on GPU in the same way as a GNN. But to be sure th
 all components (merge every component which should be merged for the worst case: linked list) message passing
 relabeling has to be run number of steps which is equal to diameter of a given graph (but in real application can
 be bounded by a relatively large number or computed precisely if the structure of graph (e.g. grid graph)
-is known). The example of the step of a message passing network is given on figure \ref{fig:postprocessing}
+is known). The example of the step of a message passing network is given on figure \ref{fig:postprocessing}.
 
 The last step of postprocessing algorithm is responsible for uncut wrongly cut edges by restoring edges
 which belongs to the same cluster (that means that there is a path in graph made by uncut edges which
@@ -441,36 +441,30 @@ significantly differ from the real-world problem instances which can lead to low
 trained on this data. But with use of this approach authors could generate sufficiently large
 dataset for training neural networks.
 
-As a metric for the evaluation authors proposed optimal objective ratio:
+As a metric for the evaluation authors proposed the optimal objective ratio:
 \[
-    m = \max \left\{ 0, \frac{c(y')}{c(\hat{y})} \right\},
+    m = \max \left\{ 0, \frac{c(\hat{y})}{c(\tilde{y})} \right\},
 \]
-where $c$ is a an objective or cost \eqref{def:cost}, $y'$ -- predicted solution,
-$\hat{y}$ -- optimal solution. This metric is computed on postprocessed output of the
+where $c$ is a an objective or cost \eqref{def:cost}, $\hat{y}$ -- predicted solution,
+$\tilde{y}$ -- optimal solution. This metric is computed on postprocessed output of the
 pipeline \ref{alg:pipeline} and can be considered as better than classical classification
 metrics like F1, precision and recall since the main objective of the optimization task is to
 minimize the total cost and therefore incorrect predictions of edge labels has different impact (higher absolute value
 of the weight -- higher impact) to the cost whereas classical metrics considered this impact as
 equal for all edges.
 
-\section{Empirical contributions (if any, max.~1 column)}
+\section{Empirical contributions} \label{sec:empirical_contib}
 
 For the evaluation in addition to generated instances of problem authors used
 dataset \citet{andres2011probabilistic} based on the Berkeley Segmentation Dataset (BSDS300) \citet{martin2001database},
 volume segmentation dataset Knott3D \citet{andres2012globally} and
-Circuit Reconstruction from Electron Microscopy Images (CREMI) \citet{beier2017multicut}
-
+Circuit Reconstruction from Electron Microscopy Images (CREMI) \citet{beier2017multicut}.
 
 \section{Ideas to improve the proposed approach}
-sf
+The proposed approach can be possibly improved by using additional heuristics,
+ideas from other methods and by analyzing the experimental result. In this section
+we will offer some ideas of how to do it.
 
-\subsection{Orthogonal embeddings} \label{sec:ortho_emb}
-g
-
-\subsection{Relaxed Cycle Consistency Loss}
-g
-
-\subsection{Edge Weight Embedding}
 \begin{figure*}[t]
     \centering
     \begin{tikzpicture}
@@ -503,12 +497,116 @@ g
                 \draw (\x, 0.1) -- (\x,0) node[below]{$\x$};
             }
     \end{tikzpicture}
-    \caption{Illustration of assigning embeddings to bins}
+    \caption{Illustration of assigning embeddings to bins of weight's value}
+    \label{fig:edge_embeddings}
 \end{figure*}
 
+\subsection{Orthogonal embeddings} \label{sec:ortho_emb}
+As it has been discussed in section \ref{sec:empirical_contib}, it is possible for model
+to produce node's embeddings for which cosine similarities will be enough to decide whether
+edge should be cut or not. The idea is to train a model explicitly to produce such embeddings.
+But since usual cosine similarities has 3 key values which corresponds to 3 "states":
+similar (value close to $1$), orthogonal (value close to $0$) and opposite (value close to $-1$), -
+whereas the labeling of edges (node pairs) has 2 states: uncut (nodes belong to the same cluster) and cut
+(nodes belongs to the opposite cluster) we propose to use the following quantity from the paper
+of \citet{chen2019instance}:
+\begin{equation} \label{eq:ortho_sim}
+    1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle|
+\end{equation}
+
+By thresholding quantity \eqref{eq:ortho_sim} with some number $t \in [0, 0.5]$ we label edges between nodes
+in a way that adjacent nodes with collinear embeddings will belong to the same component (edge is not cut)
+and with orthogonal -- to different components (edge is cut). And as it has been shown in the
+paper we don't need to care (if we chose sufficiently large embedding's dimensionality)
+about situation when non adjacent has collinear embeddings and utilize only local orthogonality.
+
+The loss function which can help us to learn it is similar to the loss from \citet{chen2019instance} as well:
+\begin{align} \label{eq:ortho_loss}
+    \mathcal{L}_{emb} =
+     & \lambda_1 \sum\limits_{e_{ij} \in y^{-1}(0)} \left(1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle| \right) + \\
+     & \lambda_2 \sum\limits_{e_{ij} \in y^{-1}(1)} |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle|,
+\end{align}
+where $\lambda_1, \lambda_2$ -- some normalization weights which depends on the number of cut and non cut edges.
+
+Unfortunately, this approach can not enforce cycle consistency in a transitive manner
+(suppose $t < 0.5$)
+\begin{multline*}
+    \begin{cases}
+        1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_j \rangle| \leq t \\
+        1 - |\cos \langle \mathbf{x}_j, \mathbf{x}_k \rangle| \leq t
+    \end{cases} \implies \\
+    1 - |\cos \langle \mathbf{x}_i, \mathbf{x}_k \rangle| \leq
+    1 - |2(1 - t)^2 - 1| \geq t
+\end{multline*}
+
+As a result, this approach allow us to get rid of MLP classifier on the head of the GNN and give a
+meaningful explanation of node embeddings and edge classification / labeling.
+
+\subsection{Relaxed Cycle Consistency Loss}
+\[
+    \frac{1}{|E|}
+    \sum\limits_{C \in cc(G)} \sum\limits_{e \in C}
+    \left[\hat{y}_e > 0.5 \right] \hat{y}_e
+    \prod\limits_{e' \in C \setminus \{e\}}
+    \left[ 1 - \hat{y}_{e'} > 0.5 \right]
+\]
+
+\subsection{Edge Weight Embedding}
+
+There are a lot of GNN architectures (e.g. Graph Attention Network \citet{velickovic2017graph} )
+that work with edge attributes. But attributes should be high dimensional (since multiplication
+weight by some shared parameter doesn't change anything).
+The idea of edge weight embedding is to split weights into
+bins (ranges) and then assign for every bin learnable embedding
+(similar to assigning embedding to token in NLP).
+
+The important point in this regard is that negative and positive values always should belong
+to different bins. The figure \ref{fig:edge_embeddings} shows
+the idea of the method.
+
+This idea is the most controversial and there is no even hypothetical clue that it can improve
+the performance of the model.
+
 \subsection{Unsupervised formulation}
+The original formulation of the problem is supervised which requires having
+an labeled dataset for training. But in their nature minimum cost multicut problem is an
+unsupervised problem. But the only thing which make the current formulation supervised is
+a binary cross-entropy loss (even orthogonal loss \eqref{eq:ortho_loss} doesn't depend on optimal solution).
+
+We can try replace $\mathcal{L}_{BCE}$ loss with
+loss which depends on the cost of cut \eqref{def:cost} itself. For example, let $\beta_t$ be
+a decreasing sequence, then multicut cost loss can be as follows:
+\[
+    \mathcal{L}_{MC}^{t} (\hat{y}) = \beta_t \left( c(\hat{y}) - c_{LB} \right),
+\]
+where $c_{LB} = \sum\limits_{w_i < 0} w_i$ -- a lower bound of the cost.
+
+It is supposed that on the first steps of training, when $\beta$ is high, our model will learn to
+assign the minimum possible cost and then, when $\beta$ become small we will take care of the cycle
+consistency \eqref{def:cycle_constraint} and other losses.
+
+Moreover, from some point of view this loss is more natural for the given multicut problem since
+classical cross-entropy doesn't distinguish between incorrect labeling of the edge with
+small and big absolute value, whereas the impact on the cost (which we actually try to minimize)
+is not equal for different weight's values. And the proposed formulation considers these different impacts.
 
 \subsection{Self-prior learning / finetuning}
+Learning on large datasets allow model generalize
+based on data instead of overfit,
+but with the generalization model can defeat on particular examples.
+But our task is to assign the best possible costs for all problems and
+initially we don't need generalization property.
+
+Unsupervised formulation allow us to perform self-prior~(inspired by \citet{Hanocka2020p2m})
+learning: overfit different, possibly graph depended model (e.g. vary
+number of layers w.r.t. the size of graph) on every particular graph which
+can allow model to output the best result for this specific instance of minimum cost multicut problem.
+
+In this of course we have to retrain model for every
+graph and it requires time (which is the main advantages of the GNN pipeline).
+It is not just an simple inference as it was in the previous cases, but it can be
+relaxed if the "training" process will start from already pretrained
+network (overfitting by finetuning).
 
 \bibliography{../references.bib}
 \bibliographystyle{plainnat}
