@@ -230,7 +230,7 @@ this value at $0.5$.
 
 MLP based edge classification requires two vectors because the input graph is considered to be undirected and
 MLP is not permutation invariant: the order of inputs
-matter. Also the averaging of the MLP outputs is not so expressible and reliable way to compute the labeling.
+mattes. Also the averaging of the MLP outputs is not so expressible and reliable way to compute the labeling.
 The ideas of how to improve this step will be discussed in section \ref{sec:ortho_emb}.
 
 The computed solution can be infeasible since there is no guarantee that cycle consistency \eqref{def:cycle_constraint} won't be
@@ -314,7 +314,7 @@ This labels is used as a node's features in the following step.
         changed their labels to the minimal label among the neighborhood. At the same time the node with label 4 didn't changed their label
         because it is not connected by uncut edge to any node with smaller label on this step. Also we denote with \textcolor{blue}{blue} color edge that became
         incident to nodes from the same cluster and therefore
-        on the last step of postprocessing algorithm will be restored.} \label{fig:postprocessing}
+        on the last step of the postprocessing algorithm will be restored.} \label{fig:postprocessing}
 \end{figure*}
 
 The key component of the postprocessing step is an message passing rule, which is the following:
@@ -334,7 +334,7 @@ The last step of postprocessing algorithm is responsible for uncut wrongly cut e
 which belongs to the same cluster (that means that there is a path in graph made by uncut edges which
 connect this two nodes and therefore constraints \eqref{def:cycle_constraint} have been violated).
 
-\subsection{Graph neural network architectures}
+\subsection{Graph neural network architectures} \label{sec:architectures}
 While all other steps of GNN multicut pipeline \ref{alg:pipeline} don't require
 additional changes, architectures of graph neural network should be adjusted to be able to incorporate
 edge weights into computation since originally minimum cost multicut problem has only this quantities and
@@ -371,7 +371,9 @@ it is worth to point out that authors also proposed updated version of Signed
 Graph Convolutional Network by \citet{derr2018signed} and Graph Isomorphic Network by \citet{xu2018powerful}.
 The explanation of choice has not been provided but the given in the appendix graphs allow us to conclude
 that decision was based on the stability in terms of training and evaluation loss especially in the case
-of Graph Isomorphic Network which has shown big fluctuations.
+of Graph Isomorphic Network which has shown big fluctuations. In addition experiments on some
+real problems (which will be described further)  have shown that the accuracy of predictions of
+Graph Convolutional Network significantly higher than the metric value of all others.
 
 \subsection{Loss function}
 Having determined the architecture the next important point in training neural networks and
@@ -396,19 +398,113 @@ formulation will be discussed in further sections as well as formulation of loss
 enumeration of all chordless cycles in the graph.
 
 \subsection{Training process and datasets}
-gs
+To test their methods authors have trained a lot of networks changing the following parameters:
+architectures that we have already discussed in the section \ref{sec:architectures},
+with and without using the cycle consistency loss \eqref{eq:ccl}. In addition they varied the architecture
+of the Graph Convolutional Network in particular trained the plain (original) model, model
+with edge weight but without adding signed normalization term $\left( \overline{\deg}(i) \overline{\deg}(j) \right)^{-\frac{1}{2}}$
+and models with both of this addition. They tested different cycle length for the the cycle consistency loss \eqref{eq:ccl},
+batch normalization, depth (number of message passing layers) and dimensionality of embeddings.
+
+Since the proposed formulation is a supervised problem, it requires labeled dataset in order to train
+GNN and MLP. Despite the fact that the minimum cost multicut problem is widespread number of publicly available
+problem instances with provided optimal solutions is limited. To beat this problem the artificially generated
+datasets has been created. The final training datasets consists of 2 datasets called IrisMP and RandomMP.
+
+IrisMP datasets consists of minimum cost multicut problem instances defined in a complete graphs and
+has been generated based on the well-known Iris flower dataset \citet{fisher1936use} by the
+following algorithm: first of all, for each graph only 2 column of the original dataset has been drown
+uniformly at random. Then uniformly from 16 to 24 rows has been selected as a nodes and since the graph is complete
+all nodes has been connected. Edge weighs have been computed as a output of the logit function applied to
+a result of computation of Gaussian kernel with $\sigma = 0.6$ to $L_2$ distances (with respect to the
+value of 2 selected from the original Iris dataset columns) between the nodes. In accordance to this
+algorithm $20000$ of problem instances has been generated for training and $1000$ graphs for test and
+validation splits.
+
+RandomMP dataset contains not complete graphs but with larger number of nodes. The size of this dataset
+is equal to the size of IrisMP. To generate this dataset the following algorithm has been used:
+the number of nodes for each each graph was sampled from the normal distribution with parameters
+$\mu = 180, \sigma = 30$. For each node of the graph its coordinate from $[0, 1]^2$ set has been sampled.
+Nodes was connected to the $k$ nearest neighbors, where $k$ was also sampled from the normal distribution with
+$\mu = 180, \sigma = 30$ but constrained to be at least $1$. For computing edge weights from the $L_2$ distance
+between nodes on the plane the median value of distance has been subtracted in order to end up
+with approximately equal number of positive and negative.
+
+It is not clear from the paper how the optimal solutions for these datasets has been computed.
+The source code of the paper has not been provided as well. So, with high probability we can consider
+that these solutions has been computed with use of some ILP solver (like \citet{gurobi}), since
+determining labels based on the generation method (for example determine whether edge between nodes of the graph from IrisMP
+dataset should be cut or not based on corresponding flower's species (different species means cut)) may lead to suboptimal solutions.
+
+In addition, it is worth to mention that problem instances from artificially generated datasets can
+significantly differ from the real-world problem instances which can lead to lower performance of the model
+trained on this data. But with use of this approach authors could generate sufficiently large
+dataset for training neural networks.
+
+As a metric for the evaluation authors proposed optimal objective ratio:
+\[
+    m = \max \left\{ 0, \frac{c(y')}{c(\hat{y})} \right\},
+\]
+where $c$ is a an objective or cost \eqref{def:cost}, $y'$ -- predicted solution,
+$\hat{y}$ -- optimal solution. This metric is computed on postprocessed output of the
+pipeline \ref{alg:pipeline} and can be considered as better than classical classification
+metrics like F1, precision and recall since the main objective of the optimization task is to
+minimize the total cost and therefore incorrect predictions of edge labels has different impact (higher absolute value
+of the weight -- higher impact) to the cost whereas classical metrics considered this impact as
+equal for all edges.
 
 \section{Empirical contributions (if any, max.~1 column)}
-g
+
+For the evaluation in addition to generated instances of problem authors used
+dataset \citet{andres2011probabilistic} based on the Berkeley Segmentation Dataset (BSDS300) \citet{martin2001database},
+volume segmentation dataset Knott3D \citet{andres2012globally} and
+Circuit Reconstruction from Electron Microscopy Images (CREMI) \citet{beier2017multicut}
+
 
 \section{Ideas to improve the proposed approach}
 sf
 
 \subsection{Orthogonal embeddings} \label{sec:ortho_emb}
+g
 
 \subsection{Relaxed Cycle Consistency Loss}
+g
 
 \subsection{Edge Weight Embedding}
+\begin{figure*}[t]
+    \centering
+    \begin{tikzpicture}
+        \tikzstyle{emb_bin} = [draw, fill=green!30, text centered, text width=0.25cm, font=\scriptsize, minimum height=0.5cm]
+        \tikzstyle{emb} = [draw, fill=blue!30, minimum width=2cm,minimum height=0.5cm]
+
+        \node (bin0) at (5, 1) [emb_bin] {0};
+        \node [emb, right of=bin0, xshift=0.25cm] {};
+        \node (bin1) at (5, 0.5) [emb_bin] {1};
+        \node [emb, right of=bin1, xshift=0.25cm] {};
+        \node (bin2) at (5, 0) [emb_bin] {2};
+        \node [emb, right of=bin2, xshift=0.25cm] {};
+        \node (bin3) at (5, -0.5) [emb_bin] {3};
+        \node [emb, right of=bin3, xshift=0.25cm] {};
+
+        \draw[arrow] (-2, 0.15)   to[bend left] (bin0);
+        \draw[arrow] (-0.5, 0.15) to[bend left] (bin1);
+        \draw[arrow] (1, -0.15)   to[bend right] (bin2);
+        \draw[arrow] (3, -0.15)   to[bend right] (bin3);
+
+        \draw[color=red!30, fill=red!30] (-3,-0.15) rectangle ++(2, 0.3);
+        \draw[color=cyan!30, fill=cyan!30] (-1,-0.15) rectangle ++(1, 0.3);
+        \draw[color=orange!30, fill=orange!30] (0,-0.15) rectangle ++(2, 0.3);
+        \draw[color=green!50, fill=green!50] (2,-0.15) rectangle ++(2, 0.3);
+
+        \draw[color=red, dashed, line width=0.1cm] (0,-1) -- (0, 1);
+
+        \draw[arrow] (-3,0) -- (4,0);
+        \foreach \x in {-3,-2,...,3}{
+                \draw (\x, 0.1) -- (\x,0) node[below]{$\x$};
+            }
+    \end{tikzpicture}
+    \caption{Illustration of assigning embeddings to bins}
+\end{figure*}
 
 \subsection{Unsupervised formulation}
 
