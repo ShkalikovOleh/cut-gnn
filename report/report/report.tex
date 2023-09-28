@@ -131,7 +131,7 @@ on each step different layers are applied).
 \subsection{Minimum cost multicut problem}
 
 The minimum cost multicut problem is a combinatorial problem which consists in binary
-edge labeling for a given, not necessarily complete, weighted graph. The resulted labeling induced
+edge labeling for a given, not necessarily complete, weighted graph. The resulting labeling induced
 a partitioning of the graph and can be recognized as an analogue of an instance segmentation for graphs and
 that's why has a lot real-world application in computer vision and other fields.
 
@@ -321,7 +321,7 @@ The key component of the postprocessing step is an message passing rule, which i
 \begin{equation} \label{def:postprocessing_mpn}
     c_i^{t+1} = \min \left\{ c_i^{t}, \min\limits_{j \in i \cup \mathcal{N}(i)} \left\{ (1 - y_{ij})c_j^{t} + y_{ij} \cdot \infty \right\}  \right\}
 \end{equation}
-This message passing network on every their step relabel nodes in a way that the resulted label is
+This message passing network on every their step relabel nodes in a way that the resulting label is
 equal to the minimum label among the node itself and their adjacent nodes unless adjacent node has been cut.
 So, this step is just some variation of a connected component algorithm. But since it is implemented as a message passing
 manner it can be parallelized on GPU in the same way as a GNN. But to be sure that we complete finding
@@ -459,6 +459,19 @@ For the evaluation in addition to generated instances of problem authors used
 dataset \citet{andres2011probabilistic} based on the Berkeley Segmentation Dataset (BSDS300) \citet{martin2001database},
 volume segmentation dataset Knott3D \citet{andres2012globally} and
 Circuit Reconstruction from Electron Microscopy Images (CREMI) \citet{beier2017multicut}.
+The proposed approach has been compared to exact ILP solver as well as Branch \& Cut LP (\citet{kappes2015comparative})
+and GAEC (\citet{keuper2015efficient}) (time-bounded and not).
+
+The main results of the experiment can be summarized as follows: the GNN pipeline \ref{alg:pipeline}
+is the best solver in the context of trade-off between runtime and resulting cost of multicut. Whereas
+classical methods show better objective value, the GNN (in particular proposed GCN architecture)
+significantly faster and computed solution is comparable to the competitors. Time bounded GAEC in comparison
+to the discussed approach is tremendously worse. These results preserves with growing of the size of
+input problem instance.
+
+Ablation study proves the efficiency of proposed cycle consistency loss \eqref{eq:ccl} and changes committed to
+the GNN architecture. Additionally, authors denoted examples where for the particular instances of problem
+GNN generated embeddings for nodes such that their cosine similarities reflects the resulting cluster.
 
 \section{Ideas to improve the proposed approach}
 The proposed approach can be possibly improved by using additional heuristics,
@@ -543,18 +556,31 @@ As a result, this approach allow us to get rid of MLP classifier on the head of 
 meaningful explanation of node embeddings and edge classification / labeling.
 
 \subsection{Relaxed Cycle Consistency Loss}
+The existing cycle consistency loss \eqref{eq:ccl} requires enumeration of all
+chordless cycles of length $\leq l$ which can lead to enormous number of cycles since
+their number grows exponentially.
+
+In the same time it has been shown by authors that increasing length of cycles
+doesn't improve the quality of the model. This explained by the fact that in a process of calculation
+we multiply a lot number in range $[0, 1]$. And whereas the problem of machine zero can be solved by
+exp-sum-log trick, the conceptual problem, that for large $l$ the loss value will be very small and
+therefore impact of this wrong prediction is imperceptible, still exists.
+
+To handle thess issues we propose the following relaxed cycle consistency loss:
 \[
-    \frac{1}{|E|}
-    \sum\limits_{C \in cc(G)} \sum\limits_{e \in C}
-    \left[\hat{y}_e > 0.5 \right] \hat{y}_e
-    \prod\limits_{e' \in C \setminus \{e\}}
-    \left[ 1 - \hat{y}_{e'} > 0.5 \right]
+    \frac{1}{|E|} \sum\limits_{e \in \tilde{E}} \hat{y}_e,
 \]
+where $\tilde{E}$ -- set of all cut edges which violate cycle consistency constraint \eqref{def:cycle_constraint}.
+
+This loss doesn't require enumeration of cycles as well as doesn't suffer from the problem of
+multiplication of small numbers. But on the other hand loss will be "backpropagated" only to the
+wrongly cut edges where the original loss penalties all edges within the cycle for which constraint
+has been violated.
 
 \subsection{Edge Weight Embedding}
 
 There are a lot of GNN architectures (e.g. Graph Attention Network \citet{velickovic2017graph} )
-that work with edge attributes. But attributes should be high dimensional (since multiplication
+that work with edge attributes. But attributes should be high dimensional (since multiplication of
 weight by some shared parameter doesn't change anything).
 The idea of edge weight embedding is to split weights into
 bins (ranges) and then assign for every bin learnable embedding
