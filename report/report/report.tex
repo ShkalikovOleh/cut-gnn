@@ -181,7 +181,7 @@ the instance of minimum multicut problem defining by graph. This pipeline can be
     \SetKwInOut{Input}{Input}
     \caption{GNN multicut pipeline}\label{alg:pipeline}
     \Input{$G = (V, E, w)$ -- graph}
-    \KwResult{$y \in \{ 0, 1 \}^E$ -- binary labeling of the edges}
+    \KwResult{$y' \in \{ 0, 1 \}^E$ -- binary labeling of the edges}
 
     \ForEach{$i \in V$}
     {
@@ -242,7 +242,7 @@ neither source code nor detailed explanation has been provided by authors we pro
     \SetKwInOut{Input}{Input}
     \caption{Cycle consistency enforcing} \label{alg:postprocessing}
     \Input{$G = (V, E, w)$ -- graph, $y \in \{ 0, 1 \}^E$ -- binary labeling of the edges}
-    \KwResult{$\hat{y} \in \{ 0, 1 \}^E$ -- feasible solution}
+    \KwResult{$y' \in \{ 0, 1 \}^E$ -- feasible solution}
 
     \For{$i \in \{1, \dots, |V| \}$}
     {
@@ -256,7 +256,7 @@ neither source code nor detailed explanation has been provided by authors we pro
 
     \ForEach{$e_{ij} \in E$}
     {
-        $\hat{y}_{ij} \gets c_i = c_j$ \;
+    $y'_{ij} \gets c_i = c_j$ \;
     }
 
 \end{algorithm}
@@ -389,7 +389,8 @@ and responsible for enforcing feasible solutions. They called id CCL (cycle cons
     \mathcal{L}_{\text{CCL}} = \sum\limits_{C \in cc(G, l)} \sum\limits_{e \in C} \hat{y}_e
     \prod\limits_{e' \in C \setminus \{e\}} (1 - \hat{y}_{e'}),
 \end{equation}
-where $cc(G, l)$ -- chordless cycles with length less or equal to $l$. This upper boundary is determined
+where $cc(G, l)$ -- chordless cycles with length less or equal to $l$ and $\hat{y}$ --
+the confidence of edge being cut (the mean of MLP outputs). This upper boundary is determined
 experimentally and necessary since the number of cycles grows exponentially.
 
 The total loss is computed as a weighted sum of these losses. But it worth to point out that supervised
@@ -443,9 +444,9 @@ dataset for training neural networks.
 
 As a metric for the evaluation authors proposed the optimal objective ratio:
 \[
-    m = \max \left\{ 0, \frac{c(\hat{y})}{c(\tilde{y})} \right\},
+    m = \max \left\{ 0, \frac{c(y')}{c(\tilde{y})} \right\},
 \]
-where $c$ is a an objective or cost \eqref{def:cost}, $\hat{y}$ -- predicted solution,
+where $c$ is a an objective or cost \eqref{def:cost}, $y'$ -- predicted solution (already rounded),
 $\tilde{y}$ -- optimal solution. This metric is computed on postprocessed output of the
 pipeline \ref{alg:pipeline} and can be considered as better than classical classification
 metrics like F1, precision and recall since the main objective of the optimization task is to
@@ -455,7 +456,7 @@ equal for all edges.
 
 \section{Empirical contributions} \label{sec:empirical_contib}
 
-For the evaluation in addition to generated instances of problem authors used
+For the evaluation, in addition to generated instances of problem, authors used
 dataset \citet{andres2011probabilistic} based on the Berkeley Segmentation Dataset (BSDS300) \citet{martin2001database},
 volume segmentation dataset Knott3D \citet{andres2012globally} and
 Circuit Reconstruction from Electron Microscopy Images (CREMI) \citet{beier2017multicut}.
@@ -478,42 +479,6 @@ The proposed approach can be possibly improved by using additional heuristics,
 ideas from other methods and by analyzing the experimental result. In this section
 we will offer some ideas of how to do it.
 
-\begin{figure*}[t]
-    \centering
-    \begin{tikzpicture}
-        \tikzstyle{emb_bin} = [draw, fill=green!30, text centered, text width=0.25cm, font=\scriptsize, minimum height=0.5cm]
-        \tikzstyle{emb} = [draw, fill=blue!30, minimum width=2cm,minimum height=0.5cm]
-
-        \node (bin0) at (5, 1) [emb_bin] {0};
-        \node [emb, right of=bin0, xshift=0.25cm] {};
-        \node (bin1) at (5, 0.5) [emb_bin] {1};
-        \node [emb, right of=bin1, xshift=0.25cm] {};
-        \node (bin2) at (5, 0) [emb_bin] {2};
-        \node [emb, right of=bin2, xshift=0.25cm] {};
-        \node (bin3) at (5, -0.5) [emb_bin] {3};
-        \node [emb, right of=bin3, xshift=0.25cm] {};
-
-        \draw[arrow] (-2, 0.15)   to[bend left] (bin0);
-        \draw[arrow] (-0.5, 0.15) to[bend left] (bin1);
-        \draw[arrow] (1, -0.15)   to[bend right] (bin2);
-        \draw[arrow] (3, -0.15)   to[bend right] (bin3);
-
-        \draw[color=red!30, fill=red!30] (-3,-0.15) rectangle ++(2, 0.3);
-        \draw[color=cyan!30, fill=cyan!30] (-1,-0.15) rectangle ++(1, 0.3);
-        \draw[color=orange!30, fill=orange!30] (0,-0.15) rectangle ++(2, 0.3);
-        \draw[color=green!50, fill=green!50] (2,-0.15) rectangle ++(2, 0.3);
-
-        \draw[color=red, dashed, line width=0.1cm] (0,-1) -- (0, 1);
-
-        \draw[arrow] (-3,0) -- (4,0);
-        \foreach \x in {-3,-2,...,3}{
-                \draw (\x, 0.1) -- (\x,0) node[below]{$\x$};
-            }
-    \end{tikzpicture}
-    \caption{Illustration of assigning embeddings to bins of weight's value}
-    \label{fig:edge_embeddings}
-\end{figure*}
-
 \subsection{Orthogonal embeddings} \label{sec:ortho_emb}
 As it has been discussed in section \ref{sec:empirical_contib}, it is possible for model
 to produce node's embeddings for which cosine similarities will be enough to decide whether
@@ -531,7 +496,7 @@ By thresholding quantity \eqref{eq:ortho_sim} with some number $t \in [0, 0.5]$ 
 in a way that adjacent nodes with collinear embeddings will belong to the same component (edge is not cut)
 and with orthogonal -- to different components (edge is cut). And as it has been shown in the
 paper we don't need to care (if we chose sufficiently large embedding's dimensionality)
-about situation when non adjacent has collinear embeddings and utilize only local orthogonality.
+about situation when non adjacent nodes have collinear embeddings and we can utilize only local orthogonality.
 
 The loss function which can help us to learn it is similar to the loss from \citet{chen2019instance} as well:
 \begin{align} \label{eq:ortho_loss}
@@ -592,6 +557,42 @@ the idea of the method.
 
 This idea is the most controversial and there is no even hypothetical clue that it can improve
 the performance of the model.
+
+\begin{figure*}[ht]
+    \centering
+    \begin{tikzpicture}
+        \tikzstyle{emb_bin} = [draw, fill=green!30, text centered, text width=0.25cm, font=\scriptsize, minimum height=0.5cm]
+        \tikzstyle{emb} = [draw, fill=blue!30, minimum width=2cm,minimum height=0.5cm]
+
+        \node (bin0) at (5, 1) [emb_bin] {0};
+        \node [emb, right of=bin0, xshift=0.25cm] {};
+        \node (bin1) at (5, 0.5) [emb_bin] {1};
+        \node [emb, right of=bin1, xshift=0.25cm] {};
+        \node (bin2) at (5, 0) [emb_bin] {2};
+        \node [emb, right of=bin2, xshift=0.25cm] {};
+        \node (bin3) at (5, -0.5) [emb_bin] {3};
+        \node [emb, right of=bin3, xshift=0.25cm] {};
+
+        \draw[arrow] (-2, 0.15)   to[bend left] (bin0);
+        \draw[arrow] (-0.5, 0.15) to[bend left] (bin1);
+        \draw[arrow] (1, -0.15)   to[bend right] (bin2);
+        \draw[arrow] (3, -0.15)   to[bend right] (bin3);
+
+        \draw[color=red!30, fill=red!30] (-3,-0.15) rectangle ++(2, 0.3);
+        \draw[color=cyan!30, fill=cyan!30] (-1,-0.15) rectangle ++(1, 0.3);
+        \draw[color=orange!30, fill=orange!30] (0,-0.15) rectangle ++(2, 0.3);
+        \draw[color=green!50, fill=green!50] (2,-0.15) rectangle ++(2, 0.3);
+
+        \draw[color=red, dashed, line width=0.1cm] (0,-1) -- (0, 1);
+
+        \draw[arrow] (-3,0) -- (4,0);
+        \foreach \x in {-3,-2,...,3}{
+                \draw (\x, 0.1) -- (\x,0) node[below]{$\x$};
+            }
+    \end{tikzpicture}
+    \caption{Illustration of assigning embeddings to bins of weight's value}
+    \label{fig:edge_embeddings}
+\end{figure*}
 
 \subsection{Unsupervised formulation}
 The original formulation of the problem is supervised which requires having
