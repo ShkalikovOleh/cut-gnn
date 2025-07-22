@@ -1,9 +1,10 @@
+from typing import Optional
+
 import torch
 import torchmetrics
 
-from typing import Optional
+__all__ = ["MultiCutRelativeCost"]
 
-__all__ = ['MultiCutRelativeCost']
 
 class MultiCutRelativeCost(torchmetrics.Metric):
     is_differentiable: Optional[bool] = False
@@ -12,10 +13,12 @@ class MultiCutRelativeCost(torchmetrics.Metric):
 
     def __init__(self) -> None:
         super().__init__()
-        self.add_state('cost', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('num', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state("cost", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("num", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, pred_edges: torch.Tensor, gt: torch.Tensor, weights: torch.Tensor) -> None:
+    def update(
+        self, pred_edges: torch.Tensor, gt: torch.Tensor, weights: torch.Tensor
+    ) -> None:
         pred_cost = weights @ pred_edges
         true_cost = weights @ gt
         rel_cost = torch.clamp_min(pred_cost / true_cost, 0)

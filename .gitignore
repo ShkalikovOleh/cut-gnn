@@ -160,13 +160,14 @@ cython_debug/
 #.idea/
 
 #Data
-data/
+temp/
 
 #VS Code
 .vscode
 
-# TB logs
+# Logs
 logs/
+lightning_logs/
 
 #Latex
 *.aux

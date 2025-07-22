@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cut_gnn"]
+exclude = []
+namespaces = false
+
+[project]
+name = "cut-gnn"
+version = "0.1.0"
+description = "Graph neural networks for solving the multicut problem "
+readme = "README.md"
+authors = [
+  {name = "Oleh Shkalikov", email = "Oleh.Shkalikov@mailbox.tu-dresden.de"},
+]
+requires-python = ">=3.10"
+dependencies = [
+  "torch_geometric>=2.6.1",
+  "lightning>=2.5.2",
+  "jsonargparse[signatures]",
+  "torchmetrics>=1.7.4",
+  "pandas",
+  "scipy",
+  "networkx",
+  "cvxpy[CVXOPT,GUROBI]"
+]
+
+[project.optional-dependencies]
+cpu = [
+  "torch==2.4.0",
+  "pyg_lib",
+  "torch_scatter",
+  "torch_sparse",
+  "torch_cluster",
+  "torch_spline_conv",
+]
+cu118 = [
+  "torch==2.4.0",
+  "pyg_lib",
+  "torch_scatter",
+  "torch_sparse",
+  "torch_cluster",
+  "torch_spline_conv",
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu118" },
+  ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pyg-cu118"
+url = "https://data.pyg.org/whl/torch-2.4.0+cu118.html"
+format = "flat"
+explicit = true
+
+[[tool.uv.index]]
+name = "pyg-cpu"
+url = "https://data.pyg.org/whl/torch-2.4.0+cpu.html"
+format = "flat"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu118", extra = "cu118" },
+]
+pyg_lib = [
+  { index = "pyg-cpu", extra = "cpu" },
+  { index = "pyg-cu118", extra = "cu118" },
+]
+torch_scatter = [
+  { index = "pyg-cpu", extra = "cpu" },
+  { index = "pyg-cu118", extra = "cu118" },
+]
+torch_sparse = [
+  { index = "pyg-cpu", extra = "cpu" },
+  { index = "pyg-cu118", extra = "cu118" },
+]
+torch_cluster = [
+  { index = "pyg-cpu", extra = "cpu" },
+  { index = "pyg-cu118", extra = "cu118" },
+]
+torch_spline_conv = [
+  { index = "pyg-cpu", extra = "cpu" },
+  { index = "pyg-cu118", extra = "cu118" },
+]

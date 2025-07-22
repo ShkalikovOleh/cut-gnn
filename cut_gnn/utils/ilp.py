@@ -1,23 +1,29 @@
-import numpy as np
-import networkx as nx
-import cvxpy as cp
-
 import typing
-from itertools import pairwise, combinations
+from itertools import combinations, pairwise
 
-__all__ = ['to_ilp', 'solve_ilp', ]
+import cvxpy as cp
+import networkx as nx
+import numpy as np
 
-def to_ilp(graph: nx.Graph, cycle_lenght_bound: int = None, ret_cycles: bool = True) -> cp.Problem:
+__all__ = [
+    "to_ilp",
+    "solve_ilp",
+]
+
+
+def to_ilp(
+    graph: nx.Graph, cycle_lenght_bound: int = None, ret_cycles: bool = True
+) -> cp.Problem:
     var = cp.Variable(graph.number_of_edges(), boolean=True)
-    c = list(nx.get_edge_attributes(graph, 'weight').values())
+    c = list(nx.get_edge_attributes(graph, "weight").values())
     obj = cp.Minimize(sum(cp.multiply(c, var)))
 
     edges = list(graph.edges)
 
     constraints = []
     cycles = []
-    for cycle in nx.simple_cycles(graph, cycle_lenght_bound):
-        indexes = {} # map from node idxs in a cycle to idx of edge in var
+    for cycle in nx.chordless_cycles(graph, cycle_lenght_bound):
+        indexes = {}  # map from node idxs in a cycle to idx of edge in var
         cycle_ext = cycle.copy()
         cycle_ext.append(cycle[0])
 
@@ -32,13 +38,14 @@ def to_ilp(graph: nx.Graph, cycle_lenght_bound: int = None, ret_cycles: bool = T
             indexes[idx] = edges.index(uv)
 
         rcycle = reversed(cycle)
-        for e, rest in zip(cycle, combinations(rcycle, len(cycle)-1)):
+        for e, rest in zip(cycle, combinations(rcycle, len(cycle) - 1)):
             constr_sum = sum([var[indexes[er]] for er in rest])
             constraints.append(var[indexes[e]] <= constr_sum)
 
     problem = cp.Problem(obj, constraints=constraints)
 
     return problem, cycles
+
 
 def solve_ilp(problem: cp.Problem, solver: typing.Optional[str] = None) -> np.array:
     problem.solve(solver=solver)
