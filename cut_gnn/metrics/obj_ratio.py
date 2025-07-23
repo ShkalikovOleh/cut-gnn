@@ -3,10 +3,10 @@ from typing import Optional
 import torch
 import torchmetrics
 
-__all__ = ["MultiCutRelativeCost"]
+__all__ = ["MultiCutObjectiveRatio"]
 
 
-class MultiCutRelativeCost(torchmetrics.Metric):
+class MultiCutObjectiveRatio(torchmetrics.Metric):
     is_differentiable: Optional[bool] = False
     higher_is_better: Optional[bool] = True
     full_state_update: bool = False
@@ -21,9 +21,9 @@ class MultiCutRelativeCost(torchmetrics.Metric):
     ) -> None:
         pred_cost = weights @ pred_edges
         true_cost = weights @ gt
-        rel_cost = torch.clamp_min(pred_cost / true_cost, 0)
+        obj_ratio = torch.clamp_min(pred_cost / true_cost, 0)
 
-        self.cost += rel_cost
+        self.cost += obj_ratio
         self.num += 1
 
     def compute(self) -> torch.Tensor:

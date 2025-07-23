@@ -4,11 +4,13 @@
 from lightning.pytorch.cli import LightningCLI
 
 from cut_gnn.datasets import GraphDataModule
-from cut_gnn.supervised import SupervisedMultiCut
+from cut_gnn.unsupervised import UnsupervisedMultiCut
 
 
 def main():
-    cli = LightningCLI(model_class=SupervisedMultiCut, datamodule_class=GraphDataModule)  # noqa: F841
+    cli = LightningCLI(
+        model_class=UnsupervisedMultiCut, datamodule_class=GraphDataModule
+    )  # noqa: F841
 
 
 if __name__ == "__main__":

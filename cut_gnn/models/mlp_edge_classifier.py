@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 from torch import nn
 
 __all__ = ["MLPEdgeClassifier"]
@@ -39,4 +38,4 @@ class MLPEdgeClassifier(nn.Module):
             torch.roll(edge_feat, shifts=self.node_dim, dims=1)
         ).view(-1)
 
-        return F.sigmoid((edge_pred_1 + edge_pred_2) / 2)
+        return (edge_pred_1 + edge_pred_2) / 2

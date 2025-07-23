@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 from lightning.pytorch import LightningModule
 from torch_geometric.data import Batch
 from torchmetrics import MetricCollection
@@ -13,7 +14,7 @@ from torchmetrics.classification import (
 )
 
 from .losses import full_ccl_loss, relaxed_ccl_loss
-from .metrics import MultiCutRelativeCost
+from .metrics import MultiCutObjectiveRatio
 from .models import CutGCN, MLPEdgeClassifier
 from .postprocess import Segmenter
 
@@ -61,13 +62,16 @@ class SupervisedMultiCut(LightningModule):
                 BinaryAveragePrecision(),
             ]
         )
-        self.train_class_metrics = class_metrics.clone("train/")
-        self.val_class_metrics = class_metrics.clone("val/")
-        self.test_class_metrics = class_metrics.clone("test/")
+        self.raw_train_class_metrics = class_metrics.clone("train/raw_")
+        self.raw_val_class_metrics = class_metrics.clone("val/raw_")
+        self.raw_test_class_metrics = class_metrics.clone("test/raw_")
+        self.post_train_class_metrics = class_metrics.clone("train/postproc_")
+        self.post_val_class_metrics = class_metrics.clone("val/postproc_")
+        self.post_test_class_metrics = class_metrics.clone("test/postproc_")
 
-        self.train_rel_cost_metric = MultiCutRelativeCost()
-        self.val_rel_cost_metric = MultiCutRelativeCost()
-        self.test_rel_cost_metric = MultiCutRelativeCost()
+        self.train_obj_ratio_metric = MultiCutObjectiveRatio()
+        self.val_obj_ratio_metric = MultiCutObjectiveRatio()
+        self.test_obj_ratio_metric = MultiCutObjectiveRatio()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         params = list(self.gnn.parameters()) + list(self.edge_classifier.parameters())
@@ -80,50 +84,53 @@ class SupervisedMultiCut(LightningModule):
         node_emb = self.gnn(
             x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
         )
-        edge_pred = self.edge_classifier(
+        edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
         )
+        edge_preds = F.sigmoid(edge_logits)
         return self.segmenter(
-            batch.edge_index, edge_pred, batch.ptr[-1], self.hparams.max_segm_step
+            batch.edge_index,
+            edge_preds.detach(),
+            batch.x.size(0),
+            self.hparams.max_segm_step,
         )
 
     def training_step(self, batch: Batch, batch_idx: int) -> torch.Tensor:
         node_emb = self.gnn(
             x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
         )
-        edge_pred = self.edge_classifier(
+        edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
         )
-
+        edge_preds = F.sigmoid(edge_logits)
         _, edge_labels = self.segmenter(
-            batch.edge_index, edge_pred, batch.ptr[-1], self.hparams.max_segm_step
+            batch.edge_index,
+            edge_preds.detach(),
+            batch.x.size(0),
+            self.hparams.max_segm_step,
         )
 
-        batch_size = batch.ptr.shape[0] - 1
-
         # BCE Loss
-        bce_loss = torch.nn.functional.binary_cross_entropy(edge_pred, batch.gt)
+        bce_loss = F.binary_cross_entropy_with_logits(edge_logits, batch.gt)
         self.log(
             "train/bce_loss",
             bce_loss,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
         )
 
         # CCL Loss
         if self.hparams.ccl_type == "relaxed":
-            cycle_loss = relaxed_ccl_loss(edge_pred, edge_labels)
+            cycle_loss = relaxed_ccl_loss(edge_preds, edge_labels)
         else:
-            cycle_loss = full_ccl_loss(
-                edge_pred, batch.edge_index, batch.cycles
-            )
+            cycle_loss = full_ccl_loss(edge_preds, batch.edge_index, batch.cycles)
         self.log(
             "train/ccl_loss",
             cycle_loss,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
         )
 
         # Total Loss
@@ -134,26 +141,33 @@ class SupervisedMultiCut(LightningModule):
             prog_bar=True,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
         )
 
         # Binary Classification metrics
-        self.train_class_metrics(edge_pred, batch.gt.to(torch.long))
+        self.raw_train_class_metrics(edge_preds, batch.gt.to(torch.long))
         self.log_dict(
-            self.train_class_metrics,
+            self.raw_train_class_metrics,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
+        )
+        self.post_train_class_metrics(edge_labels, batch.gt.to(torch.long))
+        self.log_dict(
+            self.post_train_class_metrics,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch.num_graphs,
         )
 
         # Rel Cost metric
-        self.train_rel_cost_metric(edge_labels, batch.gt, batch.weight)
+        self.train_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
         self.log(
-            "train/rel_cost",
-            self.train_rel_cost_metric,
+            "train/obj_ratio",
+            self.train_obj_ratio_metric,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
         )
 
         return loss
@@ -162,58 +176,74 @@ class SupervisedMultiCut(LightningModule):
         node_emb = self.gnn(
             x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
         )
-        edge_pred = self.edge_classifier(
+        edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
         )
-
+        edge_preds = F.sigmoid(edge_logits)
         _, edge_labels = self.segmenter(
-            batch.edge_index, edge_pred, batch.ptr[-1], self.hparams.max_segm_step
+            batch.edge_index, edge_preds, batch.x.size(0), self.hparams.max_segm_step
         )
 
-        batch_size = batch.ptr.shape[0] - 1
-
         # Binary Classification metrics
-        self.val_class_metrics(edge_pred, batch.gt.to(torch.long))
+        self.raw_val_class_metrics(edge_preds, batch.gt.to(torch.long))
         self.log_dict(
-            self.val_class_metrics, on_step=False, on_epoch=True, batch_size=batch_size
+            self.raw_val_class_metrics,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch.num_graphs,
+        )
+        self.post_val_class_metrics(edge_labels, batch.gt.to(torch.long))
+        self.log_dict(
+            self.post_val_class_metrics,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch.num_graphs,
         )
 
         # Rel Cost metric
-        self.val_rel_cost_metric(edge_labels, batch.gt, batch.weight)
+        self.val_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
         self.log(
-            "val/rel_cost",
-            self.val_rel_cost_metric,
+            "val/obj_ratio",
+            self.val_obj_ratio_metric,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
         )
 
     def test_step(self, batch: Batch, batch_idx: int) -> None:
         node_emb = self.gnn(
             x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
         )
-        edge_pred = self.edge_classifier(
+        edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
         )
-
+        edge_preds = F.sigmoid(edge_logits)
         _, edge_labels = self.segmenter(
-            batch.edge_index, edge_pred, batch.ptr[-1], self.hparams.max_segm_step
+            batch.edge_index, edge_preds, batch.x.size(0), self.hparams.max_segm_step
         )
 
-        batch_size = batch.ptr.shape[0] - 1
-
         # Binary Classification metrics
-        self.test_class_metrics(edge_pred, batch.gt.to(torch.long))
+        self.raw_test_class_metrics(edge_preds, batch.gt.to(torch.long))
         self.log_dict(
-            self.test_class_metrics, on_step=False, on_epoch=True, batch_size=batch_size
+            self.raw_test_class_metrics,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch.num_graphs,
+        )
+        self.post_test_class_metrics(edge_labels, batch.gt.to(torch.long))
+        self.log_dict(
+            self.post_test_class_metrics,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch.num_graphs,
         )
 
         # Rel Cost metric
-        self.test_rel_cost_metric(edge_labels, batch.gt, batch.weight)
+        self.test_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
         self.log(
-            "test/rel_cost",
-            self.test_rel_cost_metric,
+            "test/obj_ratio",
+            self.test_obj_ratio_metric,
             on_step=False,
             on_epoch=True,
-            batch_size=batch_size,
+            batch_size=batch.num_graphs,
         )
