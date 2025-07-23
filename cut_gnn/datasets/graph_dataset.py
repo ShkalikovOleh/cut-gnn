@@ -4,8 +4,8 @@ import pickle
 import re
 from typing import Iterable, Optional, Sequence
 
+import networkx as nx
 import torch
-import torch_geometric
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch_geometric.data import Batch, Data
@@ -56,26 +56,40 @@ class GraphDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Data:
         G = read_graph(self.__graph_files[idx])
-        data = torch_geometric.utils.from_networkx(G)
-        data.weight = data.weight.float()
-        data.gt = data.gt.float()
 
-        positive_edge_mask = data.weight > 0
-        negative_edge_mask = data.weight < 0
+        G = G.to_directed() if not nx.is_directed(G) else G
+        num_nodes = G.number_of_nodes()
+        num_edges = G.number_of_edges()
+        has_gt = "gt" in next(iter(G.edges(data=True)))[-1]
 
-        pos_weights = data.weight[positive_edge_mask]
-        neg_weights = data.weight[negative_edge_mask]
+        mapping = dict(zip(G.nodes(), range(num_nodes)))
+        edge_index = torch.empty((2, num_edges), dtype=torch.long)
+        weights = torch.empty(num_edges, dtype=torch.float32)
+        if has_gt:
+            gt = torch.empty(num_edges, dtype=torch.float32)
+        for i, (src, dst, edge_attrs) in enumerate(G.edges(data=True)):
+            edge_index[0, i] = mapping[src]
+            edge_index[1, i] = mapping[dst]
+            weights[i] = edge_attrs["weight"]
+            if has_gt:
+                gt[i] = edge_attrs["gt"]
 
-        pos_edge_index = data.edge_index[:, positive_edge_mask][0]
-        neg_edge_index = data.edge_index[:, negative_edge_mask][0]
+        positive_edge_mask = weights > 0
+        negative_edge_mask = weights < 0
 
-        pos_w_sum = scatter_add(
-            pos_weights, pos_edge_index, dim=0, dim_size=data.num_nodes
-        )
-        neg_w_sum = scatter_add(
-            neg_weights, neg_edge_index, dim=0, dim_size=data.num_nodes
-        )
-        data.x = torch.stack([pos_w_sum, neg_w_sum], dim=1)
+        pos_weights = weights[positive_edge_mask]
+        neg_weights = weights[negative_edge_mask]
+
+        pos_edge_index = edge_index[:, positive_edge_mask][0]
+        neg_edge_index = edge_index[:, negative_edge_mask][0]
+
+        pos_w_sum = scatter_add(pos_weights, pos_edge_index, dim=0, dim_size=num_nodes)
+        neg_w_sum = scatter_add(neg_weights, neg_edge_index, dim=0, dim_size=num_nodes)
+        x = torch.stack([pos_w_sum, neg_w_sum], dim=1)
+
+        data_dict = {"edge_index": edge_index, "edge_weight": weights, "x": x}
+        if has_gt:
+            data_dict["y"] = gt
 
         if self.load_cycles:
             with open(self.__cycles_files[idx], "rb") as file:
@@ -84,7 +98,9 @@ class GraphDataset(Dataset):
                     cycles = list(
                         filter(lambda c: len(c) <= self.max_cycles_len, cycles)
                     )
-                data.cycles = cycles
+                data_dict["cycles"] = cycles
+
+        data = Data.from_dict(data_dict)
 
         return data
 

@@ -82,7 +82,7 @@ class SupervisedMultiCut(LightningModule):
 
     def forward(self, batch: Batch) -> Tuple[torch.Tensor, torch.Tensor]:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -97,7 +97,7 @@ class SupervisedMultiCut(LightningModule):
 
     def training_step(self, batch: Batch, batch_idx: int) -> torch.Tensor:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -111,7 +111,7 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # BCE Loss
-        bce_loss = F.binary_cross_entropy_with_logits(edge_logits, batch.gt)
+        bce_loss = F.binary_cross_entropy_with_logits(edge_logits, batch.y)
         self.log(
             "train/bce_loss",
             bce_loss,
@@ -145,14 +145,14 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # Binary Classification metrics
-        self.raw_train_class_metrics(edge_preds, batch.gt.to(torch.long))
+        self.raw_train_class_metrics(edge_preds, batch.y.to(torch.long))
         self.log_dict(
             self.raw_train_class_metrics,
             on_step=False,
             on_epoch=True,
             batch_size=batch.num_graphs,
         )
-        self.post_train_class_metrics(edge_labels, batch.gt.to(torch.long))
+        self.post_train_class_metrics(edge_labels, batch.y.to(torch.long))
         self.log_dict(
             self.post_train_class_metrics,
             on_step=False,
@@ -161,7 +161,7 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # Rel Cost metric
-        self.train_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
+        self.train_obj_ratio_metric(edge_labels, batch.y, batch.edge_weight)
         self.log(
             "train/obj_ratio",
             self.train_obj_ratio_metric,
@@ -174,7 +174,7 @@ class SupervisedMultiCut(LightningModule):
 
     def validation_step(self, batch: Batch, batch_idx: int) -> None:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -185,14 +185,14 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # Binary Classification metrics
-        self.raw_val_class_metrics(edge_preds, batch.gt.to(torch.long))
+        self.raw_val_class_metrics(edge_preds, batch.y.to(torch.long))
         self.log_dict(
             self.raw_val_class_metrics,
             on_step=False,
             on_epoch=True,
             batch_size=batch.num_graphs,
         )
-        self.post_val_class_metrics(edge_labels, batch.gt.to(torch.long))
+        self.post_val_class_metrics(edge_labels, batch.y.to(torch.long))
         self.log_dict(
             self.post_val_class_metrics,
             on_step=False,
@@ -201,7 +201,7 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # Rel Cost metric
-        self.val_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
+        self.val_obj_ratio_metric(edge_labels, batch.y, batch.edge_weight)
         self.log(
             "val/obj_ratio",
             self.val_obj_ratio_metric,
@@ -212,7 +212,7 @@ class SupervisedMultiCut(LightningModule):
 
     def test_step(self, batch: Batch, batch_idx: int) -> None:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -223,14 +223,14 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # Binary Classification metrics
-        self.raw_test_class_metrics(edge_preds, batch.gt.to(torch.long))
+        self.raw_test_class_metrics(edge_preds, batch.y.to(torch.long))
         self.log_dict(
             self.raw_test_class_metrics,
             on_step=False,
             on_epoch=True,
             batch_size=batch.num_graphs,
         )
-        self.post_test_class_metrics(edge_labels, batch.gt.to(torch.long))
+        self.post_test_class_metrics(edge_labels, batch.y.to(torch.long))
         self.log_dict(
             self.post_test_class_metrics,
             on_step=False,
@@ -239,7 +239,7 @@ class SupervisedMultiCut(LightningModule):
         )
 
         # Rel Cost metric
-        self.test_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
+        self.test_obj_ratio_metric(edge_labels, batch.y, batch.edge_weight)
         self.log(
             "test/obj_ratio",
             self.test_obj_ratio_metric,

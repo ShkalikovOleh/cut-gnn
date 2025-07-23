@@ -9,7 +9,7 @@ __all__ = ["add_ground_truth_to_edge_attrs", "get_directed_edge_indices"]
 def add_ground_truth_to_edge_attrs(graph: nx.Graph, gt: np.ndarray) -> nx.Graph:
     var_dict = {}
     for edge, val in zip(graph.edges, gt):
-        var_dict[edge] = val
+        var_dict[edge] = val.item()
 
     nx.set_edge_attributes(graph, var_dict, "gt")
 

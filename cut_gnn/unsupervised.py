@@ -44,11 +44,9 @@ class UnsupervisedMultiCut(LightningModule):
         self.edge_classifier = MLPEdgeClassifier(
             node_dim=gnn_h_dim, hidden_dim=mlp_h_dim
         )
-
         self.segmenter = Segmenter()
 
-        self.train_obj_ratio_metric = MultiCutObjectiveRatio()
-        self.val_obj_ratio_metric = MultiCutObjectiveRatio()
+        self.test_obj_ratio_metric = MultiCutObjectiveRatio()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         params = list(self.gnn.parameters()) + list(self.edge_classifier.parameters())
@@ -59,7 +57,7 @@ class UnsupervisedMultiCut(LightningModule):
 
     def forward(self, batch: Batch) -> Tuple[torch.Tensor, torch.Tensor]:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -74,7 +72,7 @@ class UnsupervisedMultiCut(LightningModule):
 
     def training_step(self, batch: Batch, batch_idx: int) -> torch.Tensor:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -119,7 +117,7 @@ class UnsupervisedMultiCut(LightningModule):
         )
 
         # MultiCut Cost metric
-        multicut_cost = batch.weight @ edge_labels
+        multicut_cost = batch.edge_weight @ edge_labels
         self.log(
             "train/multicut_cost",
             multicut_cost,
@@ -128,22 +126,12 @@ class UnsupervisedMultiCut(LightningModule):
             batch_size=batch.num_graphs,
         )
 
-        # Rel Cost metric
-        self.train_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
-        self.log(
-            "train/obj_ratio",
-            self.train_obj_ratio_metric,
-            on_step=False,
-            on_epoch=True,
-            batch_size=batch.num_graphs,
-        )
-
         return loss
 
     def cost_loss(self, batch: Batch, edge_pred: torch.Tensor) -> torch.Tensor:
-        neg_edges = batch.weight < 0
-        cost_lb = torch.sum(batch.weight[neg_edges])
-        cost = batch.weight @ edge_pred
+        neg_edges = batch.edge_weight < 0
+        cost_lb = torch.sum(batch.edge_weight[neg_edges])
+        cost = batch.edge_weight @ edge_pred
 
         b1, b2 = self.hparams.beta_cost_1, self.hparams.beta_cost_2
         cost_loss = (
@@ -154,7 +142,7 @@ class UnsupervisedMultiCut(LightningModule):
 
     def validation_step(self, batch: Batch, batch_idx: int) -> None:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -165,7 +153,7 @@ class UnsupervisedMultiCut(LightningModule):
         )
 
         # MultiCut Cost metric
-        multicut_cost = batch.weight @ edge_labels
+        multicut_cost = batch.edge_weight @ edge_labels
         self.log(
             "val/multicut_cost",
             multicut_cost,
@@ -174,19 +162,9 @@ class UnsupervisedMultiCut(LightningModule):
             batch_size=batch.num_graphs,
         )
 
-        # Rel Cost metric
-        self.val_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
-        self.log(
-            "val/obj_ratio",
-            self.val_obj_ratio_metric,
-            on_step=False,
-            on_epoch=True,
-            batch_size=batch.num_graphs,
-        )
-
     def test_step(self, batch: Batch, batch_idx: int) -> None:
         node_emb = self.gnn(
-            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.weight
+            x=batch.x, edge_index=batch.edge_index, edge_weight=batch.edge_weight
         )
         edge_logits = self.edge_classifier(
             node_feat=node_emb, edge_index=batch.edge_index
@@ -197,7 +175,7 @@ class UnsupervisedMultiCut(LightningModule):
         )
 
         # MultiCut Cost metric
-        multicut_cost = batch.weight @ edge_labels
+        multicut_cost = batch.edge_weight @ edge_labels
         self.log(
             "test/multicut_cost",
             multicut_cost,
@@ -207,10 +185,10 @@ class UnsupervisedMultiCut(LightningModule):
         )
 
         # Rel Cost metric
-        self.val_obj_ratio_metric(edge_labels, batch.gt, batch.weight)
+        self.test_obj_ratio_metric(edge_labels, batch.y, batch.edge_weight)
         self.log(
             "test/obj_ratio",
-            self.val_obj_ratio_metric,
+            self.test_obj_ratio_metric,
             on_step=False,
             on_epoch=True,
             batch_size=batch.num_graphs,

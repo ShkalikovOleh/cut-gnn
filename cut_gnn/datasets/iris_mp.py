@@ -52,13 +52,11 @@ def generate_iris_graph(
 
     distances = pdist(iris_df.iloc[row_idxs, col_idxs], metric="euclidean")
     similarities = np.exp(-np.power(distances, 2) / (2 * sigma * sigma))
-    weights = squareform(logit(np.clip(similarities, 10**-6, 1 - 10**-6))).astype(
-        np.float32
-    )
+    weights = squareform(logit(np.clip(similarities, 10**-6, 1 - 10**-6)))
 
     graph = nx.Graph()
     for i, j in combinations(range(n_nodes), 2):
-        graph.add_edge(i, j, weight=weights[i, j])
+        graph.add_edge(i, j, weight=weights[i, j].item())
 
     return graph
 
