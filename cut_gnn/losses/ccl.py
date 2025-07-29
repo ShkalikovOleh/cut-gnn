@@ -21,13 +21,11 @@ def full_ccl_loss(
 
     for cycle in cycles:
         cut = preds[cycle]
-        total_log_sum = torch.sum(torch.log(1 - cut))
-
-        L = len(cycle)
-        for i in range(L):
-            cycle_loss += torch.sum(
-                (cut > threshold) * cut * torch.exp(total_log_sum - (1 - cut))
-            )
+        inv_log_cut = torch.log(1 - cut)
+        total_log_sum = torch.sum(inv_log_cut)
+        cycle_loss += torch.sum(
+            (cut > threshold) * cut * torch.exp(total_log_sum - inv_log_cut)
+        )
 
     return cycle_loss / len(cycles)
 
